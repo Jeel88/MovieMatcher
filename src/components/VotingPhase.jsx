@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSession } from '../store/sessionStore';
 import { SwipeCard } from './SwipeCard';
 import { films, shuffleFilms } from '../data/films';
@@ -10,7 +10,8 @@ export const VotingPhase = () => {
   const participant = state.participants.find(p => p.name === state.localParticipantName) || state.participants[0];
   const [queue, setQueue] = useState([]);
   const [history, setHistory] = useState([]);
-
+  // Airtight guard: track which filmIds have already been voted on this session
+  const votedFilms = useRef(new Set());
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // Initialize the shuffled queue for the current participant
@@ -45,10 +46,14 @@ export const VotingPhase = () => {
     }
   }, [participant, dispatch, hasInitialized, state.bannedFilms, state.selectedGenres]);
 
-  const handleVote = async (sentiment, filmId) => {
+  const handleVote = (sentiment, filmId) => {
+    // Deduplicate — ignore if this film was already voted on
+    if (votedFilms.current.has(filmId)) return;
+    votedFilms.current.add(filmId);
+
     const film = queue.find(f => f.id === filmId);
     
-    // 1. Record vote in global state locally
+    // 1. Record vote in global state
     dispatch({ type: 'CAST_VOTE', payload: { name: participant.name, filmId, sentiment } });
     
     // 2. Add to local history sidebar

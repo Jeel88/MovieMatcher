@@ -71,15 +71,16 @@ export const SessionSetup = () => {
 
       if (import.meta.env.VITE_SUPABASE_URL) {
         const result = await joinRoom(code, joinName.trim());
+        
         if (!result) {
-          dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: code } });
-        } else {
-          dispatch({ type: 'SET_ROOM', payload: { roomId: result.roomId, roomCode: code } });
-          if (result.existingParticipants) {
-            result.existingParticipants.forEach(name => {
-              dispatch({ type: 'ADD_PARTICIPANT', payload: name });
-            });
-          }
+          throw new Error('Supabase failed to initialize.');
+        }
+
+        dispatch({ type: 'SET_ROOM', payload: { roomId: result.roomId, roomCode: code } });
+        if (result.existingParticipants) {
+          result.existingParticipants.forEach(name => {
+            dispatch({ type: 'ADD_PARTICIPANT', payload: name });
+          });
         }
       } else {
         dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: code } });

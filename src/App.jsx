@@ -22,9 +22,13 @@ function AppContent() {
           (newParticipantName) => {
             dispatch({ type: 'ADD_PARTICIPANT', payload: newParticipantName });
           },
-          (newPhase) => {
+          (payload) => {
+            const newPhase = payload.phase;
             if (newPhase === 'voting') {
+              dispatch({ type: 'SET_GENRES', payload: payload.genres || [] });
               dispatch({ type: 'START_SESSION' });
+            } else if (newPhase === 'voting_rematch') {
+              dispatch({ type: 'REMATCH', payload: payload.bannedFilmId });
             } else if (newPhase === 'reveal') {
               dispatch({ type: 'SET_PHASE', payload: 'reveal' });
             }

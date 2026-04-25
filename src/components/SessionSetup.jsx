@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from '../store/sessionStore';
 import { createRoom, joinRoom, subscribeToRoom, broadcastPhaseChange } from '../utils/supabase';
 
+const ALL_GENRES = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Drama', 'Family', 'Sci-Fi', 'Thriller'];
+
 export const SessionSetup = () => {
   const { state, dispatch } = useSession();
   const [mode, setMode] = useState('create');
@@ -11,6 +13,13 @@ export const SessionSetup = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isHost, setIsHost] = useState(false);
+  const [selectedGenres, setSelectedGenres] = useState([]);
+
+  const toggleGenre = (genre) => {
+    setSelectedGenres(prev => 
+      prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
+    );
+  };
 
   useEffect(() => {
     if (error) {
@@ -82,7 +91,9 @@ export const SessionSetup = () => {
 
   const handleLaunchGrid = async () => {
     if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-      await broadcastPhaseChange(state.roomId, 'voting');
+      await broadcastPhaseChange(state.roomId, 'voting', { genres: selectedGenres });
+    } else {
+      dispatch({ type: 'SET_GENRES', payload: selectedGenres });
     }
     dispatch({ type: 'START_SESSION' });
   };
@@ -106,6 +117,29 @@ export const SessionSetup = () => {
             ))}
             {loading && <div className="px-6 py-3 font-sans font-bold text-xl text-gray-500 animate-pulse">Syncing...</div>}
           </div>
+
+          {isHost && (
+            <div className="mb-12 text-left bg-white border-[4px] border-black p-6 shadow-brutal rotate-1">
+              <h3 className="font-display text-2xl uppercase mb-4 text-pink-500">Grid Parameters (Genres)</h3>
+              <p className="font-sans text-sm mb-4 font-medium">Select genres to filter the swipe queue. Leave empty for random mix.</p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_GENRES.map(genre => {
+                  const isSelected = selectedGenres.includes(genre);
+                  return (
+                    <button
+                      key={genre}
+                      onClick={() => toggleGenre(genre)}
+                      className={`px-3 py-1 md:px-4 md:py-2 border-[3px] border-black font-sans font-bold uppercase transition-transform hover:-translate-y-1 ${
+                        isSelected ? 'bg-cyan-400 text-black shadow-[4px_4px_0_black]' : 'bg-[#F4F4F0] text-gray-400 hover:text-black hover:bg-gray-200'
+                      }`}
+                    >
+                      {genre}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {isHost ? (
             <button 

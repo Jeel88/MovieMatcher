@@ -10,6 +10,8 @@ const defaultState = {
   roomId: null, // For Supabase sync
   roomCode: null,
   localParticipantName: null,
+  selectedGenres: [],
+  bannedFilms: [],
 };
 
 const getInitialState = () => {
@@ -79,6 +81,23 @@ const sessionReducer = (state, action) => {
       return {
         ...state,
         currentParticipantIndex: nextIndex,
+        currentCardIndex: 0,
+      };
+
+    case 'SET_GENRES':
+      return { ...state, selectedGenres: action.payload };
+
+    case 'REMATCH':
+      return {
+        ...state,
+        bannedFilms: [...state.bannedFilms, action.payload], // action.payload = bannedFilmId
+        participants: state.participants.map(p => ({
+          ...p,
+          votes: {},
+          queue: []
+        })),
+        phase: 'voting',
+        currentParticipantIndex: 0,
         currentCardIndex: 0,
       };
 

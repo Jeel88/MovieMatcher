@@ -14,10 +14,20 @@ export const VotingPhase = () => {
   useEffect(() => {
     if (!participant) return;
     
-    // If they already have a queue, use it (handles reloads), otherwise generate
     if (!participant.queue || participant.queue.length === 0) {
-      // Just grab first 10 for quick testing during hackathon, easily expandable
-      const newQueue = shuffleFilms(films).slice(0, 10);
+      // Filter by banned films and selected genres
+      let pool = films;
+      if (state.bannedFilms && state.bannedFilms.length > 0) {
+        pool = pool.filter(f => !state.bannedFilms.includes(f.id));
+      }
+      if (state.selectedGenres && state.selectedGenres.length > 0) {
+        pool = pool.filter(f => state.selectedGenres.some(g => f.genre.includes(g)));
+      }
+
+      // Fallback if filter is too strict
+      if (pool.length === 0) pool = films;
+
+      const newQueue = shuffleFilms(pool).slice(0, 10);
       dispatch({ type: 'SET_PARTICIPANT_QUEUE', payload: newQueue });
       setQueue(newQueue);
     } else {

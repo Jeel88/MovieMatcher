@@ -74,7 +74,7 @@ export const subscribeToRoom = (roomId, onParticipantJoined, onPhaseChanged, onV
       'broadcast',
       { event: 'phase_change' },
       (payload) => {
-        if (onPhaseChanged) onPhaseChanged(payload.payload.phase);
+        if (onPhaseChanged) onPhaseChanged(payload.payload);
       }
     )
     .on(
@@ -89,12 +89,12 @@ export const subscribeToRoom = (roomId, onParticipantJoined, onPhaseChanged, onV
   return channel;
 };
 
-export const broadcastPhaseChange = async (roomId, phase) => {
+export const broadcastPhaseChange = async (roomId, phase, extraPayload = {}) => {
   if (!supabase) return;
   await supabase.channel(`room:${roomId}`).send({
     type: 'broadcast',
     event: 'phase_change',
-    payload: { phase }
+    payload: { phase, ...extraPayload }
   });
 };
 

@@ -143,5 +143,149 @@ export const films = [
     runtime: "148 min",
     synopsis: "A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O. The complex mission requires him to navigate multiple layers of dreams, risking everything.",
     posterUrl: "https://image.tmdb.org/t/p/w500/oYuLEt3zVCKq57qu2F8dT7NIa6f.jpg"
+  },
+  {
+    id: 16,
+    title: "The Matrix",
+    year: 1999,
+    genre: "Sci-Fi / Action",
+    runtime: "136 min",
+    synopsis: "A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg"
+  },
+  {
+    id: 17,
+    title: "Pulp Fiction",
+    year: 1994,
+    genre: "Crime / Drama",
+    runtime: "154 min",
+    synopsis: "The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/d5iIlFn5s0ImszYzBPb8JPIfbXD.jpg"
+  },
+  {
+    id: 18,
+    title: "The Shawshank Redemption",
+    year: 1994,
+    genre: "Drama",
+    runtime: "142 min",
+    synopsis: "Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/q6y0Go1tsGEsmtFryDOJo3dEmqu.jpg"
+  },
+  {
+    id: 19,
+    title: "The Dark Knight",
+    year: 2008,
+    genre: "Action / Crime",
+    runtime: "152 min",
+    synopsis: "When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg"
+  },
+  {
+    id: 20,
+    title: "Fight Club",
+    year: 1999,
+    genre: "Drama",
+    runtime: "139 min",
+    synopsis: "An insomniac office worker and a devil-may-care soap maker form an underground fight club that evolves into much more.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
+  },
+  {
+    id: 21,
+    title: "Forrest Gump",
+    year: 1994,
+    genre: "Drama / Romance",
+    runtime: "142 min",
+    synopsis: "The presidencies of Kennedy and Johnson, the Vietnam War, the Watergate scandal and other historical events unfold from the perspective of an Alabama man with an IQ of 75, whose only desire is to be reunited with his childhood sweetheart.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/arw2vcBveWOVZr6pxd9XTd1TdQa.jpg"
+  },
+  {
+    id: 22,
+    title: "Goodfellas",
+    year: 1990,
+    genre: "Biography / Crime",
+    runtime: "145 min",
+    synopsis: "The story of Henry Hill and his life in the mob, covering his relationship with his wife Karen Hill and his mob partners Jimmy Conway and Tommy DeVito in the Italian-American crime syndicate.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/aKuFiU82s5ISJpGZp7YkIr3kCUd.jpg"
+  },
+  {
+    id: 23,
+    title: "The Lord of the Rings: The Return of the King",
+    year: 2003,
+    genre: "Action / Adventure",
+    runtime: "201 min",
+    synopsis: "Gandalf and Aragorn lead the World of Men against Sauron's army to draw his gaze from Frodo and Sam as they approach Mount Doom with the One Ring.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/rCzpDGLbOoPwLjy3OAm5OU6WeSy.jpg"
+  },
+  {
+    id: 24,
+    title: "Star Wars: Episode V - The Empire Strikes Back",
+    year: 1980,
+    genre: "Action / Adventure",
+    runtime: "124 min",
+    synopsis: "After the Rebels are brutally overpowered by the Empire on the ice planet Hoth, Luke Skywalker begins Jedi training with Yoda, while his friends are pursued across the galaxy by Darth Vader and bounty hunter Boba Fett.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/7BuH8itoSrLExs2GIrFN21fH2v4.jpg"
+  },
+  {
+    id: 25,
+    title: "Spirited Away",
+    year: 2001,
+    genre: "Animation / Adventure",
+    runtime: "125 min",
+    synopsis: "During her family's move to the suburbs, a sullen 10-year-old girl wanders into a world ruled by gods, witches, and spirits, and where humans are changed into beasts.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkBg8lWOb.jpg"
+  },
+  {
+    id: 26,
+    title: "City of God",
+    year: 2002,
+    genre: "Crime / Drama",
+    runtime: "130 min",
+    synopsis: "In the slums of Rio, two kids' paths diverge as one struggles to become a photographer and the other a kingpin.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/k7eYdWvhYQyRQoU2TB2A2Xu2TfD.jpg"
+  },
+  {
+    id: 27,
+    title: "Se7en",
+    year: 1995,
+    genre: "Crime / Drama",
+    runtime: "127 min",
+    synopsis: "Two detectives, a rookie and a veteran, hunt a serial killer who uses the seven deadly sins as his motives.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/6yoghtyTpznpBik8EngEmJskVPh.jpg"
+  },
+  {
+    id: 28,
+    title: "The Silence of the Lambs",
+    year: 1991,
+    genre: "Crime / Drama",
+    runtime: "118 min",
+    synopsis: "A young F.B.I. cadet must receive the help of an incarcerated and manipulative cannibal killer to help catch another serial killer, a madman who skins his victims.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/uS9m8OBk1A8eM9I042bx8XXpqAq.jpg"
+  },
+  {
+    id: 29,
+    title: "It's a Wonderful Life",
+    year: 1946,
+    genre: "Drama / Family",
+    runtime: "130 min",
+    synopsis: "An angel is sent from Heaven to help a desperately frustrated businessman by showing him what life would have been like if he had never existed.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/bSqt9rhDZx1Q7UZ86dBPKdNomp2.jpg"
+  },
+  {
+    id: 30,
+    title: "La La Land",
+    year: 2016,
+    genre: "Comedy / Drama",
+    runtime: "128 min",
+    synopsis: "While navigating their careers in Los Angeles, a pianist and an actress fall in love while attempting to reconcile their aspirations for the future.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/uDO8zWDhfWwoFdKS4fzkUJt0Rl0.jpg"
+  },
+  {
+    id: 31,
+    title: "Avengers: Infinity War",
+    year: 2018,
+    genre: "Action / Sci-Fi",
+    runtime: "149 min",
+    synopsis: "The Avengers and their allies must be willing to sacrifice all in an attempt to defeat the powerful Thanos before his blitz of devastation and ruin puts an end to the universe.",
+    posterUrl: "https://image.tmdb.org/t/p/w500/7WsyChQLEftFiDOVTGkv3hFpyyt.jpg"
   }
 ];

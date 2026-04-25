@@ -54,24 +54,29 @@ const sessionReducer = (state, action) => {
         participants: [...state.participants, { name: action.payload, votes: {}, queue: [], isFinished: false }]
       };
 
-    case 'SET_PARTICIPANT_QUEUE':
-      const updatedParticipantsQueue = [...state.participants];
-      updatedParticipantsQueue[state.currentParticipantIndex].queue = action.payload;
+    case 'SET_PARTICIPANT_QUEUE': {
+      const { name, queue } = action.payload;
       return {
         ...state,
-        participants: updatedParticipantsQueue,
+        participants: state.participants.map(p => 
+          p.name === name ? { ...p, queue } : p
+        ),
       };
+    }
 
-    case 'CAST_VOTE':
-      const { filmId, sentiment } = action.payload;
-      const newParticipants = [...state.participants];
-      newParticipants[state.currentParticipantIndex].votes[filmId] = sentiment;
-      
+    case 'CAST_VOTE': {
+      const { name, filmId, sentiment } = action.payload;
       return {
         ...state,
-        participants: newParticipants,
+        participants: state.participants.map(p => {
+          if (p.name === name) {
+            return { ...p, votes: { ...p.votes, [filmId]: sentiment } };
+          }
+          return p;
+        }),
         currentCardIndex: state.currentCardIndex + 1,
       };
+    }
 
     case 'MARK_FINISHED':
       return {

@@ -29,7 +29,7 @@ export const VotingPhase = () => {
       if (pool.length === 0) pool = films;
 
       const newQueue = shuffleFilms(pool).slice(0, 10);
-      dispatch({ type: 'SET_PARTICIPANT_QUEUE', payload: newQueue });
+      dispatch({ type: 'SET_PARTICIPANT_QUEUE', payload: { name: participant.name, queue: newQueue } });
       setQueue(newQueue);
     } else {
       setQueue(participant.queue);
@@ -40,7 +40,7 @@ export const VotingPhase = () => {
     const film = queue.find(f => f.id === filmId);
     
     // 1. Record vote in global state locally
-    dispatch({ type: 'CAST_VOTE', payload: { filmId, sentiment } });
+    dispatch({ type: 'CAST_VOTE', payload: { name: participant.name, filmId, sentiment } });
     
     // 2. Add to local history sidebar
     setHistory(prev => [{ film, sentiment }, ...prev]);

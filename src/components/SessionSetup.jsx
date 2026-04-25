@@ -149,44 +149,46 @@ export const SessionSetup = () => {
           </div>
 
           {isHost && (
-            <div className="mb-12 text-left bg-white border-[4px] border-black p-6 shadow-brutal rotate-1">
-              <h3 className="font-display text-2xl uppercase mb-4 text-pink-500">Grid Parameters (Genres)</h3>
-              <p className="font-sans text-sm mb-4 font-medium">Select genres to filter the swipe queue. Leave empty for random mix.</p>
-              <div className="flex flex-wrap gap-2">
-                {ALL_GENRES.map(genre => {
-                  const isSelected = selectedGenres.includes(genre);
-                  return (
-                    <button
-                      key={genre}
-                      onClick={() => toggleGenre(genre)}
-                      className={`px-3 py-1 md:px-4 md:py-2 border-[3px] border-black font-sans font-bold uppercase transition-transform hover:-translate-y-1 ${
-                        isSelected ? 'bg-cyan-400 text-black shadow-[4px_4px_0_black]' : 'bg-[#F4F4F0] text-gray-400 hover:text-black hover:bg-gray-200'
-                      }`}
-                    >
-                      {genre}
-                    </button>
-                  );
-                })}
+            <>
+              <div className="mb-8 text-left bg-white border-[4px] border-black p-6 shadow-brutal rotate-1">
+                <h3 className="font-display text-2xl uppercase mb-4 text-pink-500">Grid Parameters (Genres)</h3>
+                <p className="font-sans text-sm mb-4 font-medium">Select genres to filter the swipe queue. Leave empty for random mix.</p>
+                <div className="flex flex-wrap gap-2">
+                  {ALL_GENRES.map(genre => {
+                    const isSelected = selectedGenres.includes(genre);
+                    return (
+                      <button
+                        key={genre}
+                        onClick={() => toggleGenre(genre)}
+                        className={`px-3 py-1 md:px-4 md:py-2 border-[3px] border-black font-sans font-bold uppercase transition-transform hover:-translate-y-1 ${
+                          isSelected ? 'bg-cyan-400 text-black shadow-[4px_4px_0_black]' : 'bg-[#F4F4F0] text-gray-400 hover:text-black hover:bg-gray-200'
+                        }`}
+                      >
+                        {genre}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
 
-            {/* AI Movie Generation */}
-            <div className="mt-6">
-              <button
-                onClick={handleGenerateMovies}
-                disabled={aiLoading}
-                className={`w-full py-4 font-display text-2xl uppercase tracking-widest border-[4px] border-black transition-all ${
-                  aiReady
-                    ? 'bg-green-400 text-black shadow-[4px_4px_0_black]'
-                    : 'bg-[#FFE600] text-black shadow-[6px_6px_0_black] hover:translate-y-1 hover:shadow-[2px_2px_0_black]'
-                } ${aiLoading ? 'animate-pulse cursor-wait' : 'cursor-pointer'}`}
-              >
-                {aiLoading ? 'GENERATING CATALOGUE...' : aiReady ? '✓ AI CATALOGUE READY' : 'GENERATE AI MOVIES'}
-              </button>
-              {aiReady && (
-                <p className="text-center font-sans font-bold text-green-700 mt-2 text-sm">30 fresh movies generated! Launch when ready.</p>
-              )}
-            </div>
+              {/* AI Movie Generation */}
+              <div className="mb-8">
+                <button
+                  onClick={handleGenerateMovies}
+                  disabled={aiLoading}
+                  className={`w-full py-4 font-display text-2xl uppercase tracking-widest border-[4px] border-black transition-all ${
+                    aiReady
+                      ? 'bg-green-400 text-black shadow-[4px_4px_0_black]'
+                      : 'bg-[#FFE600] text-black shadow-[6px_6px_0_black] hover:translate-y-1 hover:shadow-[2px_2px_0_black]'
+                  } ${aiLoading ? 'animate-pulse cursor-wait' : 'cursor-pointer'}`}
+                >
+                  {aiLoading ? 'GENERATING CATALOGUE...' : aiReady ? '✓ AI CATALOGUE READY' : 'GENERATE AI MOVIES'}
+                </button>
+                {aiReady && (
+                  <p className="text-center font-sans font-bold text-green-700 mt-2 text-sm">30 fresh movies generated! Launch when ready.</p>
+                )}
+              </div>
+            </>
           )}
 
           {isHost ? (

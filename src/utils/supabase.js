@@ -26,25 +26,31 @@ export const joinRoom = async (code, participantName) => {
   if (!supabase) return null;
 
   const normalizedCode = code.trim().toUpperCase();
-  console.log(`[Supabase] Attempting to join room: "${normalizedCode}" for participant: "${participantName}"`);
+  console.log(`[Supabase] Querying room table for code: "${normalizedCode}"`);
 
-  const { data: room, error: roomError } = await supabase
+  // Use a simple array select first to avoid .single()/.maybeSingle() potential issues
+  const { data: rooms, error: roomError } = await supabase
     .from('rooms')
     .select('id, code')
     .eq('code', normalizedCode)
-    .maybeSingle();
+    .limit(1);
 
   if (roomError) {
-    console.error('[Supabase] Error finding room:', roomError);
+    console.error('[Supabase] Error querying rooms table:', roomError);
     throw roomError;
   }
 
+  const room = rooms && rooms.length > 0 ? rooms[0] : null;
+
   if (!room) {
-    console.error(`[Supabase] No room found with code: "${normalizedCode}"`);
+    console.error(`[Supabase] ROOM NOT FOUND IN DB. Code: "${normalizedCode}"`);
+    // List some rooms to see what's actually there (debug only)
+    const { data: allRooms } = await supabase.from('rooms').select('code').limit(5);
+    console.log('[Supabase] Recent room codes in DB:', allRooms?.map(r => r.code));
     throw new Error('Room not found');
   }
 
-  console.log('[Supabase] Found room:', room);
+  console.log('[Supabase] Room found. ID:', room.id);
 
   const { data: existingParticipants, error: epError } = await supabase
     .from('room_participants')
@@ -56,23 +62,24 @@ export const joinRoom = async (code, participantName) => {
     throw epError;
   }
 
+  // Insert the new participant
   const { data: participant, error: pError } = await supabase
     .from('room_participants')
-    .insert([{ room_id: room.id, name: participantName, state: {} }])
+    .insert([{ room_id: room.id, name: participantName.trim(), state: {} }])
     .select()
     .single();
 
   if (pError) {
-    console.error('[Supabase] Error joining room:', pError);
+    console.error('[Supabase] Error inserting participant:', pError);
     throw pError;
   }
 
-  console.log('[Supabase] Successfully joined room as:', participantName);
+  console.log('[Supabase] Joined room successfully:', participant);
 
   return {
     roomId: room.id,
     participantId: participant.id,
-    existingParticipants: existingParticipants.map(p => p.name),
+    existingParticipants: existingParticipants ? existingParticipants.map(p => p.name) : [],
   };
 };
 

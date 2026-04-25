@@ -9,12 +9,13 @@ export const SwipeCard = ({ film, index, onVote }) => {
 
   return (
     <motion.div
+      layout
+      exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
       style={{
         x: dragProps.x,
-        y: dragProps.y,
+        y: isFront ? dragProps.y : index * 12,
         rotate,
         scale: isFront ? 1 : 1 - index * 0.05,
-        y: isFront ? dragProps.y : index * 12, // Stack offset
         zIndex: 10 - index,
       }}
       {...dragProps}

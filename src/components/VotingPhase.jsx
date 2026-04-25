@@ -10,70 +10,77 @@ export const VotingPhase = () => {
   const participant = state.participants.find(p => p.name === state.localParticipantName) || state.participants[0];
   const [queue, setQueue] = useState([]);
   const [hasInitialized, setHasInitialized] = useState(false);
-  // Airtight guard: each filmId can only be voted on once per session
+  // Airtight guard — Set stores string keys for consistency
   const votedFilms = useRef(new Set());
-  // Track voted count for the progress indicator
+  // Track all votes locally so we never read stale Redux state mid-swipe
+  const localVotes = useRef({});
   const [votedCount, setVotedCount] = useState(0);
+  const [totalCards, setTotalCards] = useState(10);
 
-  // Build the queue once on mount
+  // Build the queue exactly once
   useEffect(() => {
     if (!participant || hasInitialized) return;
 
     if (!participant.queue || participant.queue.length === 0) {
       const source = (state.aiCatalogue && state.aiCatalogue.length > 0) ? state.aiCatalogue : films;
 
-      let pool = source;
+      let pool = [...source];
       if (state.bannedFilms && state.bannedFilms.length > 0) {
         pool = pool.filter(f => !state.bannedFilms.includes(f.id));
       }
       if (state.selectedGenres && state.selectedGenres.length > 0) {
         pool = pool.filter(f => state.selectedGenres.some(g => f.genre.includes(g)));
       }
-      if (pool.length === 0) pool = source; // fallback
+      if (pool.length === 0) pool = [...source];
 
       const newQueue = shuffleFilms(pool).slice(0, 10);
       dispatch({ type: 'SET_PARTICIPANT_QUEUE', payload: { name: participant.name, queue: newQueue } });
       setQueue(newQueue);
+      setTotalCards(newQueue.length);
+      localVotes.current = {};
     } else {
-      // Restore remaining cards (skip already-voted films)
-      const remaining = participant.queue.filter(f => !participant.votes[f.id]);
-      // Pre-fill votedFilms from existing votes so the guard stays consistent
-      Object.keys(participant.votes).forEach(id => votedFilms.current.add(Number(id)));
+      // Restore — skip already voted films
+      const existing = participant.votes || {};
+      Object.keys(existing).forEach(id => {
+        votedFilms.current.add(String(id));
+        localVotes.current[id] = existing[id];
+      });
+      const remaining = participant.queue.filter(f => !existing[f.id]);
       setQueue(remaining);
-      setVotedCount(Object.keys(participant.votes).length);
+      setTotalCards(participant.queue.length);
+      setVotedCount(Object.keys(existing).length);
     }
 
     setHasInitialized(true);
   }, [participant, dispatch, hasInitialized, state.bannedFilms, state.selectedGenres, state.aiCatalogue]);
 
   const handleVote = (sentiment, filmId) => {
-    // Deduplicate — ignore if already voted
-    if (votedFilms.current.has(filmId)) return;
-    votedFilms.current.add(filmId);
+    const key = String(filmId);
+    // Deduplicate — hard stop
+    if (votedFilms.current.has(key)) return;
+    votedFilms.current.add(key);
 
-    // 1. Record vote in global state
+    // Track locally so the final broadcast has ALL votes, not stale Redux state
+    localVotes.current[key] = sentiment;
+
+    // 1. Record in Redux
     dispatch({ type: 'CAST_VOTE', payload: { name: participant.name, filmId, sentiment } });
 
-    // 2. Remove card from local queue
-    const remainingQueue = queue.filter(f => f.id !== filmId);
+    // 2. Remove from local queue
+    const remainingQueue = queue.filter(f => String(f.id) !== key);
     setQueue(remainingQueue);
     setVotedCount(prev => prev + 1);
 
-    // 3. If queue empty → finished
+    // 3. If queue empty → broadcast ALL votes at once and mark finished
     if (remainingQueue.length === 0) {
-      const updatedVotes = { ...participant.votes, [filmId]: sentiment };
       dispatch({ type: 'MARK_FINISHED', payload: participant.name });
       if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-        broadcastVotes(state.roomId, participant.name, updatedVotes, true);
+        broadcastVotes(state.roomId, participant.name, { ...localVotes.current }, true);
       }
     }
   };
 
   if (!participant) return null;
-
-  const totalCards = (participant.queue && participant.queue.length > 0)
-    ? participant.queue.length
-    : 10;
 
   return (
     <div className="h-screen overflow-hidden bg-[#F4F4F0] text-black flex flex-col bg-halftone">
@@ -101,10 +108,10 @@ export const VotingPhase = () => {
         </div>
       </div>
 
-      {/* SWIPE AREA — fills remaining height */}
+      {/* SWIPE AREA */}
       <div className="flex-1 flex items-center justify-center relative">
         <div className="relative w-[320px] sm:w-96 h-[65vh]">
-          <AnimatePresence>
+          <AnimatePresence mode="popLayout">
             {queue.slice(0, 3).map((film, index) => (
               <SwipeCard
                 key={film.id}

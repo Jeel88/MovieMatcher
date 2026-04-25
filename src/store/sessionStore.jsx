@@ -33,7 +33,8 @@ const sessionReducer = (state, action) => {
         participants: state.participants.map(p => ({
           ...p,
           votes: {},
-          queue: []
+          queue: [],
+          isFinished: false
         })),
         phase: 'voting',
         currentParticipantIndex: 0,

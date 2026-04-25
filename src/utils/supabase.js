@@ -34,6 +34,15 @@ export const joinRoom = async (code, participantName) => {
     
   if (roomError) throw new Error("Room not found");
 
+  // 2. Fetch existing participants
+  const { data: existingParticipants, error: epError } = await supabase
+    .from('room_participants')
+    .select('name')
+    .eq('room_id', room.id);
+
+  if (epError) throw epError;
+
+  // 3. Insert new participant
   const { data: participant, error: pError } = await supabase
     .from('room_participants')
     .insert([{ room_id: room.id, name: participantName, state: {} }])
@@ -41,7 +50,12 @@ export const joinRoom = async (code, participantName) => {
     .single();
 
   if (pError) throw pError;
-  return { roomId: room.id, participantId: participant.id };
+  
+  return { 
+    roomId: room.id, 
+    participantId: participant.id,
+    existingParticipants: existingParticipants.map(p => p.name)
+  };
 };
 
 // --- Realtime Sync ---

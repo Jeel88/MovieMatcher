@@ -57,8 +57,14 @@ export const SessionSetup = () => {
 
     try {
       if (import.meta.env.VITE_SUPABASE_URL) {
-        const { roomId } = await joinRoom(joinCode.toUpperCase(), joinName);
+        const { roomId, existingParticipants } = await joinRoom(joinCode.toUpperCase(), joinName);
         dispatch({ type: 'SET_ROOM', payload: { roomId, roomCode: joinCode.toUpperCase() } });
+        
+        if (existingParticipants) {
+          existingParticipants.forEach(name => {
+            dispatch({ type: 'ADD_PARTICIPANT', payload: name });
+          });
+        }
       } else {
         dispatch({ type: 'SET_ROOM', payload: { roomId: 'mock-id', roomCode: joinCode.toUpperCase() } });
       }

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 export const VotingPhase = () => {
   const { state, dispatch } = useSession();
-  const participant = state.participants[state.currentParticipantIndex];
+  const participant = state.participants.find(p => p.name === state.localParticipantName) || state.participants[0];
   const [queue, setQueue] = useState([]);
   const [history, setHistory] = useState([]);
 
@@ -25,24 +25,30 @@ export const VotingPhase = () => {
     }
   }, [participant, dispatch]);
 
-  const handleVote = (sentiment, filmId) => {
+  const handleVote = async (sentiment, filmId) => {
     const film = queue.find(f => f.id === filmId);
     
-    // 1. Record vote in global state
+    // 1. Record vote in global state locally
     dispatch({ type: 'CAST_VOTE', payload: { filmId, sentiment } });
     
     // 2. Add to local history sidebar
     setHistory(prev => [{ film, sentiment }, ...prev]);
     
     // 3. Remove from local queue
-    setQueue(prev => prev.filter(f => f.id !== filmId));
+    const remainingQueue = queue.filter(f => f.id !== filmId);
+    setQueue(remainingQueue);
 
-    // 4. Check if queue is empty -> Next Participant
-    if (queue.length <= 1) {
-      setTimeout(() => {
-        dispatch({ type: 'NEXT_PARTICIPANT' });
-        setHistory([]); // reset history for next person
-      }, 500);
+    // 4. Check if queue is empty -> Broadcast votes and Wait
+    if (remainingQueue.length === 0) {
+      const updatedVotes = { ...participant.votes, [filmId]: sentiment };
+      
+      if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
+        import('../utils/supabase').then(({ broadcastVotes }) => {
+          broadcastVotes(state.roomId, participant.name, updatedVotes);
+        });
+      } else {
+        // If local mode, we let App.jsx auto-trigger the reveal.
+      }
     }
   };
 
@@ -105,7 +111,13 @@ export const VotingPhase = () => {
               className="absolute inset-0 flex flex-col items-center justify-center bg-white border-brutal shadow-brutal rounded-2xl text-center p-8"
             >
               <h2 className="font-display text-3xl md:text-4xl mb-4 text-pink-500">QUEUE COMPLETE</h2>
-              <p className="font-sans font-medium">Passing control to next participant...</p>
+              <p className="font-sans font-medium mb-4">Transmitting votes to Host...</p>
+              <div className="flex gap-2 justify-center">
+                <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" />
+                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-bounce delay-75" />
+                <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce delay-150" />
+              </div>
+              <p className="font-sans font-medium mt-4 text-gray-500">Waiting for other crew members to finish.</p>
             </motion.div>
           )}
         </div>

@@ -41,14 +41,15 @@ export const SessionSetup = () => {
     try {
       const code = Math.random().toString(36).substring(2, 6).toUpperCase().padEnd(4, 'X');
       
-      if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        const room = await createRoom(code);
-        if (!room) throw new Error("Supabase client failed to initialize.");
-        dispatch({ type: 'SET_ROOM', payload: { roomId: room.id, roomCode: code } });
-        await joinRoom(code, hostName.trim());
-      } else {
-        dispatch({ type: 'SET_ROOM', payload: { roomId: 'mock-id', roomCode: code } });
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        throw new Error('Supabase configuration missing. Please restart your dev server.');
       }
+
+      const room = await createRoom(code);
+      if (!room) throw new Error("Supabase client failed to initialize.");
+      
+      dispatch({ type: 'SET_ROOM', payload: { roomId: room.id, roomCode: code } });
+      await joinRoom(code, hostName.trim());
 
       dispatch({ type: 'ADD_PARTICIPANT', payload: hostName.trim() });
       dispatch({ type: 'SET_LOCAL_USER', payload: hostName.trim() });
@@ -69,21 +70,21 @@ export const SessionSetup = () => {
     try {
       const code = joinCode.trim().toUpperCase();
 
-      if (import.meta.env.VITE_SUPABASE_URL) {
-        const result = await joinRoom(code, joinName.trim());
-        
-        if (!result) {
-          throw new Error('Supabase failed to initialize.');
-        }
+      if (!import.meta.env.VITE_SUPABASE_URL) {
+        throw new Error('Supabase configuration missing. Please restart your dev server.');
+      }
 
-        dispatch({ type: 'SET_ROOM', payload: { roomId: result.roomId, roomCode: code } });
-        if (result.existingParticipants) {
-          result.existingParticipants.forEach(name => {
-            dispatch({ type: 'ADD_PARTICIPANT', payload: name });
-          });
-        }
-      } else {
-        dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: code } });
+      const result = await joinRoom(code, joinName.trim());
+      
+      if (!result) {
+        throw new Error('Supabase failed to initialize.');
+      }
+
+      dispatch({ type: 'SET_ROOM', payload: { roomId: result.roomId, roomCode: code } });
+      if (result.existingParticipants) {
+        result.existingParticipants.forEach(name => {
+          dispatch({ type: 'ADD_PARTICIPANT', payload: name });
+        });
       }
 
       dispatch({ type: 'ADD_PARTICIPANT', payload: joinName.trim() });

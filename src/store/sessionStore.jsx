@@ -1,0 +1,112 @@
+import React, { createContext, useReducer, useContext, useEffect } from 'react';
+
+const LOCAL_STORAGE_KEY = 'quorum_session_state';
+
+const defaultState = {
+  participants: [], // [{ name: 'Alice', votes: { filmId: 'sentiment' }, queue: [filmId, ...] }]
+  currentParticipantIndex: 0,
+  currentCardIndex: 0,
+  phase: 'hero', // 'hero', 'setup', 'voting', 'countdown', 'reveal', 'results'
+  roomId: null, // For Supabase sync
+  roomCode: null,
+};
+
+const getInitialState = () => {
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch (e) {
+    console.error("Failed to load state from localStorage", e);
+  }
+  return defaultState;
+};
+
+const sessionReducer = (state, action) => {
+  switch (action.type) {
+    case 'START_SESSION':
+      return {
+        ...state,
+        participants: action.payload.map(name => ({
+          name,
+          votes: {},
+          queue: []
+        })),
+        phase: 'voting',
+        currentParticipantIndex: 0,
+        currentCardIndex: 0,
+      };
+
+    case 'SET_ROOM':
+      return {
+        ...state,
+        roomId: action.payload.roomId,
+        roomCode: action.payload.roomCode
+      };
+
+    case 'ADD_PARTICIPANT':
+      // Avoid duplicates if they joined themselves
+      if (state.participants.some(p => p.name === action.payload)) return state;
+      return {
+        ...state,
+        participants: [...state.participants, { name: action.payload, votes: {}, queue: [] }]
+      };
+
+    case 'SET_PARTICIPANT_QUEUE':
+      const updatedParticipants = [...state.participants];
+      updatedParticipants[state.currentParticipantIndex].queue = action.payload;
+      return {
+        ...state,
+        participants: updatedParticipants,
+      };
+
+    case 'CAST_VOTE':
+      const { filmId, sentiment } = action.payload;
+      const newParticipants = [...state.participants];
+      newParticipants[state.currentParticipantIndex].votes[filmId] = sentiment;
+      
+      return {
+        ...state,
+        participants: newParticipants,
+        currentCardIndex: state.currentCardIndex + 1,
+      };
+
+    case 'NEXT_PARTICIPANT':
+      const nextIndex = state.currentParticipantIndex + 1;
+      if (nextIndex >= state.participants.length) {
+        return { ...state, phase: 'countdown' };
+      }
+      return {
+        ...state,
+        currentParticipantIndex: nextIndex,
+        currentCardIndex: 0,
+      };
+
+    case 'SET_PHASE':
+      return { ...state, phase: action.payload };
+
+    case 'RESET_SESSION':
+      return defaultState;
+
+    default:
+      return state;
+  }
+};
+
+const SessionContext = createContext();
+
+export const SessionProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(sessionReducer, defaultState, getInitialState);
+
+  // Auto-persist to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
+
+  return (
+    <SessionContext.Provider value={{ state, dispatch }}>
+      {children}
+    </SessionContext.Provider>
+  );
+};
+
+export const useSession = () => useContext(SessionContext);

@@ -27,6 +27,12 @@ export const SwipeCard = ({ film, index, onVote }) => {
         alt={film.title} 
         className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
         draggable="false"
+        onError={(e) => {
+          // Fallback to a reliable placeholder if poster fails to load
+          const slug = film.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          e.target.src = `https://picsum.photos/seed/${slug}/400/600`;
+          e.target.onerror = null; // prevent infinite loop
+        }}
       />
       
       {/* Gradient overlay to make text readable */}

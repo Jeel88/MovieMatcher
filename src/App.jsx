@@ -33,8 +33,8 @@ function AppContent() {
             dispatch({ type: 'SET_PHASE', payload: 'reveal' });
           }
         },
-        (name, votes) => {
-          dispatch({ type: 'RECEIVE_VOTES', payload: { name, votes } });
+        (name, votes, isFinished) => {
+          dispatch({ type: 'RECEIVE_VOTES', payload: { name, votes, isFinished } });
         }
       );
     }
@@ -45,10 +45,8 @@ function AppContent() {
     if (state.phase === 'voting' && state.participants.length > 0) {
       const isHost = state.participants[0].name === state.localParticipantName;
       if (isHost || !import.meta.env.VITE_SUPABASE_URL) {
-        // Assume queue is completed when a user casts 10 votes (or whatever the queue limit is)
-        // For robustness, check if they have at least 1 vote, but ideally 10.
-        // Wait, since we slice(0, 10), they must cast 10.
-        const allFinished = state.participants.every(p => Object.keys(p.votes).length >= 10);
+        // Everyone is finished when their isFinished flag is true!
+        const allFinished = state.participants.every(p => p.isFinished);
         
         if (allFinished) {
           if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {

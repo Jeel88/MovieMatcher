@@ -81,7 +81,7 @@ export const subscribeToRoom = (roomId, onParticipantJoined, onPhaseChanged, onV
       'broadcast',
       { event: 'submit_votes' },
       (payload) => {
-        if (onVotesSubmitted) onVotesSubmitted(payload.payload.name, payload.payload.votes);
+        if (onVotesSubmitted) onVotesSubmitted(payload.payload.name, payload.payload.votes, payload.payload.isFinished);
       }
     )
     .subscribe();
@@ -98,11 +98,11 @@ export const broadcastPhaseChange = async (roomId, phase, extraPayload = {}) => 
   });
 };
 
-export const broadcastVotes = async (roomId, name, votes) => {
+export const broadcastVotes = async (roomId, name, votes, isFinished = false) => {
   if (!supabase) return;
   await supabase.channel(`room:${roomId}`).send({
     type: 'broadcast',
     event: 'submit_votes',
-    payload: { name, votes }
+    payload: { name, votes, isFinished }
   });
 };

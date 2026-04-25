@@ -51,15 +51,15 @@ const sessionReducer = (state, action) => {
       if (state.participants.some(p => p.name === action.payload)) return state;
       return {
         ...state,
-        participants: [...state.participants, { name: action.payload, votes: {}, queue: [] }]
+        participants: [...state.participants, { name: action.payload, votes: {}, queue: [], isFinished: false }]
       };
 
     case 'SET_PARTICIPANT_QUEUE':
-      const updatedParticipants = [...state.participants];
-      updatedParticipants[state.currentParticipantIndex].queue = action.payload;
+      const updatedParticipantsQueue = [...state.participants];
+      updatedParticipantsQueue[state.currentParticipantIndex].queue = action.payload;
       return {
         ...state,
-        participants: updatedParticipants,
+        participants: updatedParticipantsQueue,
       };
 
     case 'CAST_VOTE':
@@ -71,6 +71,14 @@ const sessionReducer = (state, action) => {
         ...state,
         participants: newParticipants,
         currentCardIndex: state.currentCardIndex + 1,
+      };
+
+    case 'MARK_FINISHED':
+      return {
+        ...state,
+        participants: state.participants.map(p => 
+          p.name === action.payload ? { ...p, isFinished: true } : p
+        )
       };
 
     case 'NEXT_PARTICIPANT':
@@ -94,7 +102,8 @@ const sessionReducer = (state, action) => {
         participants: state.participants.map(p => ({
           ...p,
           votes: {},
-          queue: []
+          queue: [],
+          isFinished: false
         })),
         phase: 'voting',
         currentParticipantIndex: 0,
@@ -105,11 +114,11 @@ const sessionReducer = (state, action) => {
       return { ...state, localParticipantName: action.payload };
 
     case 'RECEIVE_VOTES': {
-      const { name, votes } = action.payload;
-      const updatedParticipants = state.participants.map(p => 
-        p.name === name ? { ...p, votes } : p
+      const { name, votes, isFinished } = action.payload;
+      const updatedParticipantsVotes = state.participants.map(p => 
+        p.name === name ? { ...p, votes, isFinished: isFinished !== undefined ? isFinished : p.isFinished } : p
       );
-      return { ...state, participants: updatedParticipants };
+      return { ...state, participants: updatedParticipantsVotes };
     }
 
     case 'SET_PHASE':

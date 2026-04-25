@@ -53,8 +53,11 @@ export const VotingPhase = () => {
     if (remainingQueue.length === 0) {
       const updatedVotes = { ...participant.votes, [filmId]: sentiment };
       
+      // Mark local participant as finished
+      dispatch({ type: 'MARK_FINISHED', payload: participant.name });
+      
       if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-        broadcastVotes(state.roomId, participant.name, updatedVotes);
+        broadcastVotes(state.roomId, participant.name, updatedVotes, true);
       } else {
         // If local mode, we let App.jsx auto-trigger the reveal.
       }

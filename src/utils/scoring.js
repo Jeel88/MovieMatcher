@@ -25,16 +25,28 @@ export const rankFilms = (participants) => {
   return leaderboard;
 };
 
-export const fetchAllRationales = async (participants, topFilmId, apiKey) => {
-  // This will call Claude API
-  // Returning mocked data for now until we build the actual fetch call in the Results component
-  if (!apiKey) {
-    return participants.reduce((acc, p) => {
-      acc[p.name] = `Because ${p.name} loved the visually striking style and the genre aligns with their previous highly rated films. It's a perfect match for their distinct taste profile.`;
-      return acc;
-    }, {});
-  }
+const SASSY_ROASTS = [
+  "Basic taste detected. Of course you liked this one, it requires zero brain cells to comprehend.",
+  "Oh look, another completely predictable swipe. I bet you think vanilla is the spiciest flavor too.",
+  "Your algorithm profile suggests you have the cinematic taste of a sleepy golden retriever.",
+  "I processed 14 million possible movies for you, and this is what you pick? My CPU is weeping.",
+  "Statistically speaking, your movie opinions are why aliens refuse to talk to us.",
+  "You definitely tell people you 'love indie films' but only watch Marvel movies in secret.",
+  "I didn't need a neural network to predict this swipe. A Magic 8-Ball could have guessed your taste.",
+  "Fascinating. Your votes perfectly align with someone who sleeps with socks on.",
+  "Your cinematic palate is so unseasoned, it makes plain toast look like a gourmet meal.",
+  "My sentiment analysis indicates you have excellent taste... in being completely average."
+];
 
-  // To be implemented fully in the Claude integration phase
-  return {};
+export const fetchAllRationales = async (participants, topFilmId, apiKey) => {
+  // Simulate a slight delay for the "GENERATING ROAST..." effect
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  return participants.reduce((acc, p) => {
+    // Pick a random roast from the array
+    const randomRoast = SASSY_ROASTS[Math.floor(Math.random() * SASSY_ROASTS.length)];
+    // Personalize it slightly with their name
+    acc[p.name] = `[User: ${p.name}] ${randomRoast}`;
+    return acc;
+  }, {});
 };

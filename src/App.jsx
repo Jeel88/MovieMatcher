@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { LandingHero } from './components/LandingHero';
 import { SessionSetup } from './components/SessionSetup';
 import { SessionProvider, useSession } from './store/sessionStore';
@@ -9,6 +9,10 @@ import { subscribeToRoom, broadcastPhaseChange, broadcastAICatalogue } from './u
 
 function AppContent() {
   const { state, dispatch } = useSession();
+  // Use a ref so the Supabase subscription callback always reads the latest name
+  const localNameRef = useRef(state.localParticipantName);
+  useEffect(() => { localNameRef.current = state.localParticipantName; }, [state.localParticipantName]);
+
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -20,7 +24,10 @@ function AppContent() {
       const channel = subscribeToRoom(
         state.roomId,
         (newParticipantName) => {
-          dispatch({ type: 'ADD_PARTICIPANT', payload: newParticipantName });
+          // Don't add yourself — you're already added locally on join/create
+          if (newParticipantName !== localNameRef.current) {
+            dispatch({ type: 'ADD_PARTICIPANT', payload: newParticipantName });
+          }
         },
         (payload) => {
           const newPhase = payload.phase;

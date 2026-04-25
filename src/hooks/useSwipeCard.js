@@ -1,8 +1,11 @@
 import { useMotionValue, useTransform, animate } from 'framer-motion';
+import { useRef } from 'react';
 
 export const useSwipeCard = ({ index, onVote, filmId }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
+  // Guard: prevent double-voting on the same card
+  const hasVoted = useRef(false);
 
   // Tilt based on x drag
   const rotate = useTransform(x, [-300, 300], [-18, 18]);
@@ -10,18 +13,16 @@ export const useSwipeCard = ({ index, onVote, filmId }) => {
   // Fade in overlays based on drag distances
   const noOpacity = useTransform(x, [-80, -20], [1, 0]);
   const yesOpacity = useTransform(x, [20, 80], [0, 1]);
-  // Love requires dragging straight up
   const loveOpacity = useTransform(y, [-80, -20], [1, 0]);
 
-  // Clean up visual noise when dragging heavily in one direction
   const combinedNoOpacity = useTransform([noOpacity, loveOpacity], ([n, l]) => l > 0.5 ? 0 : n);
   const combinedYesOpacity = useTransform([yesOpacity, loveOpacity], ([y, l]) => l > 0.5 ? 0 : y);
 
   const flyOut = (direction, callback) => {
     const targets = {
-      right: { x: 600, y: -50, rotate: 20 },
-      left:  { x: -600, y: -50, rotate: -20 },
-      up:    { x: 0, y: -700, rotate: 0 },
+      right: { x: 600,  y: -50,  },
+      left:  { x: -600, y: -50,  },
+      up:    { x: 0,    y: -700, },
     };
     const t = targets[direction];
     animate(x, t.x, { duration: 0.35, ease: 'easeIn' });
@@ -30,17 +31,22 @@ export const useSwipeCard = ({ index, onVote, filmId }) => {
   };
 
   const handleDragEnd = (event, info) => {
+    // If we already voted on this card instance, ignore
+    if (hasVoted.current) return;
+
     const vx = info.velocity.x;
     const vy = info.velocity.y;
     const ox = info.offset.x;
     const oy = info.offset.y;
 
-    // Trigger on either velocity OR distance threshold — much more mobile friendly
     if (vy < -250 || oy < -120) {
+      hasVoted.current = true;
       flyOut('up', () => onVote('love', filmId));
     } else if (vx > 250 || ox > 120) {
+      hasVoted.current = true;
       flyOut('right', () => onVote('yes', filmId));
     } else if (vx < -250 || ox < -120) {
+      hasVoted.current = true;
       flyOut('left', () => onVote('no', filmId));
     } else {
       // Snap back with spring
@@ -57,7 +63,7 @@ export const useSwipeCard = ({ index, onVote, filmId }) => {
     dragElastic: 0.7,
     onDragEnd: handleDragEnd,
     whileTap: { scale: index === 0 ? 1.03 : 1 },
-    style: { touchAction: 'none' }
+    style: { touchAction: 'none' },
   };
 
   return {
@@ -66,7 +72,7 @@ export const useSwipeCard = ({ index, onVote, filmId }) => {
     opacities: {
       no: combinedNoOpacity,
       yes: combinedYesOpacity,
-      love: loveOpacity
-    }
+      love: loveOpacity,
+    },
   };
 };

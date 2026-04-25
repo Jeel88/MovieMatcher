@@ -91,25 +91,41 @@ export const SessionSetup = () => {
     setError('');
 
     try {
+      const code = joinCode.trim().toUpperCase();
+
       if (import.meta.env.VITE_SUPABASE_URL) {
-        const { roomId, existingParticipants } = await joinRoom(joinCode.toUpperCase(), joinName);
-        dispatch({ type: 'SET_ROOM', payload: { roomId, roomCode: joinCode.toUpperCase() } });
-        
-        if (existingParticipants) {
-          existingParticipants.forEach(name => {
-            dispatch({ type: 'ADD_PARTICIPANT', payload: name });
-          });
+        const result = await joinRoom(code, joinName.trim());
+
+        if (!result) {
+          // Supabase not initialized — fall back to local mode
+          dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: code } });
+        } else {
+          dispatch({ type: 'SET_ROOM', payload: { roomId: result.roomId, roomCode: code } });
+
+          // Add existing participants so the joiner sees who's already in
+          if (result.existingParticipants) {
+            result.existingParticipants.forEach(name => {
+              dispatch({ type: 'ADD_PARTICIPANT', payload: name });
+            });
+          }
         }
       } else {
-        dispatch({ type: 'SET_ROOM', payload: { roomId: 'mock-id', roomCode: joinCode.toUpperCase() } });
+        dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: joinCode.toUpperCase() } });
       }
 
       setIsHost(false);
-      dispatch({ type: 'ADD_PARTICIPANT', payload: joinName });
-      dispatch({ type: 'SET_LOCAL_USER', payload: joinName });
+      dispatch({ type: 'ADD_PARTICIPANT', payload: joinName.trim() });
+      dispatch({ type: 'SET_LOCAL_USER', payload: joinName.trim() });
     } catch (err) {
-      setError('Failed to join room. Check code.');
-      console.error(err);
+      console.error('Join error:', err);
+      const msg = err?.message || '';
+      if (msg.includes('not found') || msg.includes('PGRST116')) {
+        setError(`Room "${joinCode.toUpperCase()}" not found. Ask the host for the code.`);
+      } else if (msg.includes('duplicate') || msg.includes('23505')) {
+        setError('That name is already in the room. Try a different name.');
+      } else {
+        setError(`Join failed: ${msg || 'Unknown error. Check your connection.'}`);
+      }
     } finally {
       setLoading(false);
     }

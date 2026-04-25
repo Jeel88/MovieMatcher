@@ -11,9 +11,11 @@ export const VotingPhase = () => {
   const [queue, setQueue] = useState([]);
   const [history, setHistory] = useState([]);
 
+  const [hasInitialized, setHasInitialized] = useState(false);
+
   // Initialize the shuffled queue for the current participant
   useEffect(() => {
-    if (!participant) return;
+    if (!participant || hasInitialized) return;
     
     if (!participant.queue || participant.queue.length === 0) {
       // Filter by banned films and selected genres
@@ -31,10 +33,14 @@ export const VotingPhase = () => {
       const newQueue = shuffleFilms(pool).slice(0, 10);
       dispatch({ type: 'SET_PARTICIPANT_QUEUE', payload: { name: participant.name, queue: newQueue } });
       setQueue(newQueue);
+      setHasInitialized(true);
     } else {
-      setQueue(participant.queue);
+      // Restore remaining queue if page reloaded
+      const remaining = participant.queue.filter(f => !participant.votes[f.id]);
+      setQueue(remaining);
+      setHasInitialized(true);
     }
-  }, [participant, dispatch]);
+  }, [participant, dispatch, hasInitialized, state.bannedFilms, state.selectedGenres]);
 
   const handleVote = async (sentiment, filmId) => {
     const film = queue.find(f => f.id === filmId);

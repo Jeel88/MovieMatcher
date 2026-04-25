@@ -18,8 +18,11 @@ export const VotingPhase = () => {
     if (!participant || hasInitialized) return;
     
     if (!participant.queue || participant.queue.length === 0) {
+      // Use AI catalogue if generated, otherwise fall back to hardcoded films
+      const source = (state.aiCatalogue && state.aiCatalogue.length > 0) ? state.aiCatalogue : films;
+
       // Filter by banned films and selected genres
-      let pool = films;
+      let pool = source;
       if (state.bannedFilms && state.bannedFilms.length > 0) {
         pool = pool.filter(f => !state.bannedFilms.includes(f.id));
       }

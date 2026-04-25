@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from '../store/sessionStore';
 import { createRoom, joinRoom, subscribeToRoom, broadcastPhaseChange } from '../utils/supabase';
+import { generateMovieCatalogue } from '../utils/aiMovies';
 
 const ALL_GENRES = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Drama', 'Family', 'Sci-Fi', 'Thriller'];
 
@@ -14,6 +15,27 @@ export const SessionSetup = () => {
   const [loading, setLoading] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
+
+  const handleGenerateMovies = async () => {
+    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      setError('No AI key found. Add VITE_ANTHROPIC_API_KEY to your .env file.');
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const movies = await generateMovieCatalogue(selectedGenres, apiKey);
+      dispatch({ type: 'SET_AI_CATALOGUE', payload: movies });
+      setAiReady(true);
+    } catch (e) {
+      console.error(e);
+      setError('AI generation failed. Check your API key.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const toggleGenre = (genre) => {
     setSelectedGenres(prev => 
@@ -138,6 +160,24 @@ export const SessionSetup = () => {
                   );
                 })}
               </div>
+            </div>
+
+            {/* AI Movie Generation */}
+            <div className="mt-6">
+              <button
+                onClick={handleGenerateMovies}
+                disabled={aiLoading}
+                className={`w-full py-4 font-display text-2xl uppercase tracking-widest border-[4px] border-black transition-all ${
+                  aiReady
+                    ? 'bg-green-400 text-black shadow-[4px_4px_0_black]'
+                    : 'bg-[#FFE600] text-black shadow-[6px_6px_0_black] hover:translate-y-1 hover:shadow-[2px_2px_0_black]'
+                } ${aiLoading ? 'animate-pulse cursor-wait' : 'cursor-pointer'}`}
+              >
+                {aiLoading ? 'GENERATING CATALOGUE...' : aiReady ? '✓ AI CATALOGUE READY' : 'GENERATE AI MOVIES'}
+              </button>
+              {aiReady && (
+                <p className="text-center font-sans font-bold text-green-700 mt-2 text-sm">30 fresh movies generated! Launch when ready.</p>
+              )}
             </div>
           )}
 

@@ -1,45 +1,63 @@
-import { useMotionValue, useTransform } from 'framer-motion';
+import { useMotionValue, useTransform, animate } from 'framer-motion';
 
 export const useSwipeCard = ({ index, onVote, filmId }) => {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
 
   // Tilt based on x drag
-  const rotate = useTransform(x, [-200, 200], [-10, 10]);
-  
+  const rotate = useTransform(x, [-300, 300], [-18, 18]);
+
   // Fade in overlays based on drag distances
-  const noOpacity = useTransform(x, [-100, -20], [1, 0]);
-  const yesOpacity = useTransform(x, [20, 100], [0, 1]);
+  const noOpacity = useTransform(x, [-80, -20], [1, 0]);
+  const yesOpacity = useTransform(x, [20, 80], [0, 1]);
   // Love requires dragging straight up
-  const loveOpacity = useTransform(y, [-100, -20], [1, 0]);
+  const loveOpacity = useTransform(y, [-80, -20], [1, 0]);
 
   // Clean up visual noise when dragging heavily in one direction
   const combinedNoOpacity = useTransform([noOpacity, loveOpacity], ([n, l]) => l > 0.5 ? 0 : n);
   const combinedYesOpacity = useTransform([yesOpacity, loveOpacity], ([y, l]) => l > 0.5 ? 0 : y);
 
-  // Velocity threshold set to 300 for mobile touch friendly throws
+  const flyOut = (direction, callback) => {
+    const targets = {
+      right: { x: 600, y: -50, rotate: 20 },
+      left:  { x: -600, y: -50, rotate: -20 },
+      up:    { x: 0, y: -700, rotate: 0 },
+    };
+    const t = targets[direction];
+    animate(x, t.x, { duration: 0.35, ease: 'easeIn' });
+    animate(y, t.y, { duration: 0.35, ease: 'easeIn' });
+    setTimeout(callback, 320);
+  };
+
   const handleDragEnd = (event, info) => {
     const vx = info.velocity.x;
     const vy = info.velocity.y;
+    const ox = info.offset.x;
+    const oy = info.offset.y;
 
-    if (vy < -300) {
-      onVote('love', filmId);
-    } else if (vx > 300) {
-      onVote('yes', filmId);
-    } else if (vx < -300) {
-      onVote('no', filmId);
+    // Trigger on either velocity OR distance threshold — much more mobile friendly
+    if (vy < -250 || oy < -120) {
+      flyOut('up', () => onVote('love', filmId));
+    } else if (vx > 250 || ox > 120) {
+      flyOut('right', () => onVote('yes', filmId));
+    } else if (vx < -250 || ox < -120) {
+      flyOut('left', () => onVote('no', filmId));
+    } else {
+      // Snap back with spring
+      animate(x, 0, { type: 'spring', stiffness: 300, damping: 25 });
+      animate(y, 0, { type: 'spring', stiffness: 300, damping: 25 });
     }
-    // Snap back automatically handles by Framer Motion dragConstraints in the component
   };
 
   const dragProps = {
     x,
     y,
-    drag: index === 0 ? true : false,
-    dragConstraints: { left: 0, right: 0, top: 0, bottom: 0 },
-    dragElastic: 1, // Full elasticity before snapping back
+    drag: index === 0,
+    dragConstraints: { left: -500, right: 500, top: -600, bottom: 100 },
+    dragElastic: 0.7,
     onDragEnd: handleDragEnd,
-    whileTap: { scale: index === 0 ? 1.05 : 1 }
+    whileTap: { scale: index === 0 ? 1.03 : 1 },
+    style: { touchAction: 'none' }
   };
 
   return {

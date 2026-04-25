@@ -12,6 +12,7 @@ const defaultState = {
   localParticipantName: null,
   selectedGenres: [],
   bannedFilms: [],
+  aiCatalogue: [], // AI-generated movies replace the hardcoded films
 };
 
 const getInitialState = () => {
@@ -99,6 +100,9 @@ const sessionReducer = (state, action) => {
 
     case 'SET_GENRES':
       return { ...state, selectedGenres: action.payload };
+
+    case 'SET_AI_CATALOGUE':
+      return { ...state, aiCatalogue: action.payload };
 
     case 'REMATCH':
       return {

@@ -5,6 +5,7 @@ import { films } from '../data/films';
 import { fireWinnerConfetti } from '../utils/confetti';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { broadcastPhaseChange } from '../utils/supabase';
 
 export const RevealCeremony = () => {
   const { state, dispatch } = useSession();
@@ -86,7 +87,6 @@ export const RevealCeremony = () => {
   const handleRematch = async () => {
     const winner = leaderboard[0];
     if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-      const { broadcastPhaseChange } = await import('../utils/supabase');
       await broadcastPhaseChange(state.roomId, 'voting_rematch', { bannedFilmId: winner.id });
     } else {
       dispatch({ type: 'REMATCH', payload: winner.id });

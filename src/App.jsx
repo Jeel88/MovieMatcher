@@ -5,6 +5,7 @@ import { SessionProvider, useSession } from './store/sessionStore';
 import { VotingPhase } from './components/VotingPhase';
 import { Countdown } from './components/Countdown';
 import { RevealCeremony } from './components/RevealCeremony';
+import { subscribeToRoom, broadcastPhaseChange } from './utils/supabase';
 
 function AppContent() {
   const { state, dispatch } = useSession();
@@ -16,28 +17,26 @@ function AppContent() {
   // Global Realtime Subscription
   useEffect(() => {
     if (state.roomId && import.meta.env.VITE_SUPABASE_URL) {
-      import('./utils/supabase').then(({ subscribeToRoom }) => {
-        const channel = subscribeToRoom(
-          state.roomId,
-          (newParticipantName) => {
-            dispatch({ type: 'ADD_PARTICIPANT', payload: newParticipantName });
-          },
-          (payload) => {
-            const newPhase = payload.phase;
-            if (newPhase === 'voting') {
-              dispatch({ type: 'SET_GENRES', payload: payload.genres || [] });
-              dispatch({ type: 'START_SESSION' });
-            } else if (newPhase === 'voting_rematch') {
-              dispatch({ type: 'REMATCH', payload: payload.bannedFilmId });
-            } else if (newPhase === 'reveal') {
-              dispatch({ type: 'SET_PHASE', payload: 'reveal' });
-            }
-          },
-          (name, votes) => {
-            dispatch({ type: 'RECEIVE_VOTES', payload: { name, votes } });
+      const channel = subscribeToRoom(
+        state.roomId,
+        (newParticipantName) => {
+          dispatch({ type: 'ADD_PARTICIPANT', payload: newParticipantName });
+        },
+        (payload) => {
+          const newPhase = payload.phase;
+          if (newPhase === 'voting') {
+            dispatch({ type: 'SET_GENRES', payload: payload.genres || [] });
+            dispatch({ type: 'START_SESSION' });
+          } else if (newPhase === 'voting_rematch') {
+            dispatch({ type: 'REMATCH', payload: payload.bannedFilmId });
+          } else if (newPhase === 'reveal') {
+            dispatch({ type: 'SET_PHASE', payload: 'reveal' });
           }
-        );
-      });
+        },
+        (name, votes) => {
+          dispatch({ type: 'RECEIVE_VOTES', payload: { name, votes } });
+        }
+      );
     }
   }, [state.roomId, dispatch]);
 
@@ -53,10 +52,8 @@ function AppContent() {
         
         if (allFinished) {
           if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-            import('./utils/supabase').then(({ broadcastPhaseChange }) => {
-              broadcastPhaseChange(state.roomId, 'reveal');
-              dispatch({ type: 'SET_PHASE', payload: 'reveal' });
-            });
+            broadcastPhaseChange(state.roomId, 'reveal');
+            dispatch({ type: 'SET_PHASE', payload: 'reveal' });
           } else {
             // Local fallback
             dispatch({ type: 'SET_PHASE', payload: 'reveal' });

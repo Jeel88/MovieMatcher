@@ -3,6 +3,7 @@ import { useSession } from '../store/sessionStore';
 import { SwipeCard } from './SwipeCard';
 import { films, shuffleFilms } from '../data/films';
 import { AnimatePresence, motion } from 'framer-motion';
+import { broadcastVotes } from '../utils/supabase';
 
 export const VotingPhase = () => {
   const { state, dispatch } = useSession();
@@ -53,9 +54,7 @@ export const VotingPhase = () => {
       const updatedVotes = { ...participant.votes, [filmId]: sentiment };
       
       if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-        import('../utils/supabase').then(({ broadcastVotes }) => {
-          broadcastVotes(state.roomId, participant.name, updatedVotes);
-        });
+        broadcastVotes(state.roomId, participant.name, updatedVotes);
       } else {
         // If local mode, we let App.jsx auto-trigger the reveal.
       }

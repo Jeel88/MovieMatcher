@@ -13,10 +13,10 @@ const defaultState = {
 
 const getInitialState = () => {
   try {
-    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const stored = sessionStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) return JSON.parse(stored);
   } catch (e) {
-    console.error("Failed to load state from localStorage", e);
+    console.error("Failed to load state from sessionStorage", e);
   }
   return defaultState;
 };
@@ -97,9 +97,9 @@ const SessionContext = createContext();
 export const SessionProvider = ({ children }) => {
   const [state, dispatch] = useReducer(sessionReducer, defaultState, getInitialState);
 
-  // Auto-persist to localStorage on every change
+  // Auto-persist to sessionStorage on every change
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    sessionStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
   return (

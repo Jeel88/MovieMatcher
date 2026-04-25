@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from '../store/sessionStore';
-import { createRoom, joinRoom, subscribeToRoom, broadcastPhaseChange, broadcastAICatalogue } from '../utils/supabase';
+import { createRoom, joinRoom, broadcastPhaseChange, broadcastAICatalogue } from '../utils/supabase';
 import { generateMovieCatalogue } from '../utils/aiMovies';
 
 const ALL_GENRES = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Drama', 'Family', 'Sci-Fi', 'Thriller'];
@@ -13,33 +13,11 @@ export const SessionSetup = () => {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isHost, setIsHost] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState([]);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiReady, setAiReady] = useState(false);
+  const [launching, setLaunching] = useState(false);
 
-  const handleGenerateMovies = async () => {
-    setAiLoading(true);
-    setError('');
-    try {
-      const movies = await generateMovieCatalogue(selectedGenres);
-      if (movies && movies.length > 0) {
-        dispatch({ type: 'SET_AI_CATALOGUE', payload: movies });
-        if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-          await broadcastAICatalogue(state.roomId, movies);
-        }
-        setAiReady(true);
-      } else {
-        setError('No API keys found. Using built-in movie library instead.');
-        setAiReady(false);
-      }
-    } catch (e) {
-      console.error(e);
-      setError('Generation failed. Will use built-in movie library.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
+  // Derive isHost from the first participant in the list or if we just created it
+  const isHost = state.participants.length > 0 && state.participants[0].name === state.localParticipantName;
 
   const toggleGenre = (genre) => {
     setSelectedGenres(prev => 
@@ -61,26 +39,21 @@ export const SessionSetup = () => {
     setError('');
 
     try {
-      // Guaranteed 4-character uppercase alphanumeric code
       const code = Math.random().toString(36).substring(2, 6).toUpperCase().padEnd(4, 'X');
       
-      console.log('[Supabase] Creating room with code:', code);
       if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) {
         const room = await createRoom(code);
         if (!room) throw new Error("Supabase client failed to initialize.");
-        console.log('[Supabase] Room created:', room);
         dispatch({ type: 'SET_ROOM', payload: { roomId: room.id, roomCode: code } });
-        // The host must add themselves to the room_participants
         await joinRoom(code, hostName.trim());
       } else {
         dispatch({ type: 'SET_ROOM', payload: { roomId: 'mock-id', roomCode: code } });
       }
 
-      setIsHost(true);
-      dispatch({ type: 'ADD_PARTICIPANT', payload: hostName });
-      dispatch({ type: 'SET_LOCAL_USER', payload: hostName });
+      dispatch({ type: 'ADD_PARTICIPANT', payload: hostName.trim() });
+      dispatch({ type: 'SET_LOCAL_USER', payload: hostName.trim() });
     } catch (err) {
-      setError('Failed to create room. Check Supabase connection.');
+      setError('Failed to create room. Check connection.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -98,14 +71,10 @@ export const SessionSetup = () => {
 
       if (import.meta.env.VITE_SUPABASE_URL) {
         const result = await joinRoom(code, joinName.trim());
-
         if (!result) {
-          // Supabase not initialized — fall back to local mode
           dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: code } });
         } else {
           dispatch({ type: 'SET_ROOM', payload: { roomId: result.roomId, roomCode: code } });
-
-          // Add existing participants so the joiner sees who's already in
           if (result.existingParticipants) {
             result.existingParticipants.forEach(name => {
               dispatch({ type: 'ADD_PARTICIPANT', payload: name });
@@ -113,21 +82,20 @@ export const SessionSetup = () => {
           }
         }
       } else {
-        dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: joinCode.toUpperCase() } });
+        dispatch({ type: 'SET_ROOM', payload: { roomId: 'local', roomCode: code } });
       }
 
-      setIsHost(false);
       dispatch({ type: 'ADD_PARTICIPANT', payload: joinName.trim() });
       dispatch({ type: 'SET_LOCAL_USER', payload: joinName.trim() });
     } catch (err) {
       console.error('Join error:', err);
       const msg = err?.message || '';
       if (msg.includes('not found') || msg.includes('PGRST116')) {
-        setError(`Room "${joinCode.toUpperCase()}" not found. Ask the host for the code.`);
+        setError(`Room "${joinCode.toUpperCase()}" not found.`);
       } else if (msg.includes('duplicate') || msg.includes('23505')) {
-        setError('That name is already in the room. Try a different name.');
+        setError('That name is already in the room.');
       } else {
-        setError(`Join failed: ${msg || 'Unknown error. Check your connection.'}`);
+        setError(`Join failed: ${msg || 'Unknown error.'}`);
       }
     } finally {
       setLoading(false);
@@ -135,16 +103,30 @@ export const SessionSetup = () => {
   };
 
   const handleLaunchGrid = async () => {
-    if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-      // Broadcast AI catalogue first so participants get movies before voting
-      if (state.aiCatalogue && state.aiCatalogue.length > 0) {
-        await broadcastAICatalogue(state.roomId, state.aiCatalogue);
+    setLaunching(true);
+    try {
+      // 1. Generate movies automatically on launch
+      const movies = await generateMovieCatalogue(selectedGenres);
+      
+      if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
+        // 2. Broadcast catalogue to everyone
+        if (movies && movies.length > 0) {
+          await broadcastAICatalogue(state.roomId, movies);
+          dispatch({ type: 'SET_AI_CATALOGUE', payload: movies });
+        }
+        // 3. Start session for everyone
+        await broadcastPhaseChange(state.roomId, 'voting', { genres: selectedGenres });
+      } else {
+        if (movies) dispatch({ type: 'SET_AI_CATALOGUE', payload: movies });
+        dispatch({ type: 'SET_GENRES', payload: selectedGenres });
       }
-      await broadcastPhaseChange(state.roomId, 'voting', { genres: selectedGenres });
-    } else {
-      dispatch({ type: 'SET_GENRES', payload: selectedGenres });
+      dispatch({ type: 'START_SESSION' });
+    } catch (err) {
+      console.error('Launch failed:', err);
+      setError('Failed to launch grid. Try again.');
+    } finally {
+      setLaunching(false);
     }
-    dispatch({ type: 'START_SESSION' });
   };
 
   // --- LOBBY VIEW ---
@@ -168,54 +150,35 @@ export const SessionSetup = () => {
           </div>
 
           {isHost && (
-            <>
-              <div className="mb-8 text-left bg-white border-[4px] border-black p-6 shadow-brutal rotate-1">
-                <h3 className="font-display text-2xl uppercase mb-4 text-pink-500">Grid Parameters (Genres)</h3>
-                <p className="font-sans text-sm mb-4 font-medium">Select genres to filter the swipe queue. Leave empty for random mix.</p>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_GENRES.map(genre => {
-                    const isSelected = selectedGenres.includes(genre);
-                    return (
-                      <button
-                        key={genre}
-                        onClick={() => toggleGenre(genre)}
-                        className={`px-3 py-1 md:px-4 md:py-2 border-[3px] border-black font-sans font-bold uppercase transition-transform hover:-translate-y-1 ${
-                          isSelected ? 'bg-cyan-400 text-black shadow-[4px_4px_0_black]' : 'bg-[#F4F4F0] text-gray-400 hover:text-black hover:bg-gray-200'
-                        }`}
-                      >
-                        {genre}
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="mb-8 text-left bg-white border-[4px] border-black p-6 shadow-brutal rotate-1">
+              <h3 className="font-display text-2xl uppercase mb-4 text-pink-500">Grid Parameters (Genres)</h3>
+              <p className="font-sans text-sm mb-4 font-medium">Select genres to filter. Leave empty for random mix.</p>
+              <div className="flex flex-wrap gap-2">
+                {ALL_GENRES.map(genre => {
+                  const isSelected = selectedGenres.includes(genre);
+                  return (
+                    <button
+                      key={genre}
+                      onClick={() => toggleGenre(genre)}
+                      className={`px-3 py-1 md:px-4 md:py-2 border-[3px] border-black font-sans font-bold uppercase transition-transform hover:-translate-y-1 ${
+                        isSelected ? 'bg-cyan-400 text-black shadow-[4px_4px_0_black]' : 'bg-[#F4F4F0] text-gray-400 hover:text-black hover:bg-gray-200'
+                      }`}
+                    >
+                      {genre}
+                    </button>
+                  );
+                })}
               </div>
-
-              {/* AI Movie Generation */}
-              <div className="mb-8">
-                <button
-                  onClick={handleGenerateMovies}
-                  disabled={aiLoading}
-                  className={`w-full py-4 font-display text-2xl uppercase tracking-widest border-[4px] border-black transition-all ${
-                    aiReady
-                      ? 'bg-green-400 text-black shadow-[4px_4px_0_black]'
-                      : 'bg-[#FFE600] text-black shadow-[6px_6px_0_black] hover:translate-y-1 hover:shadow-[2px_2px_0_black]'
-                  } ${aiLoading ? 'animate-pulse cursor-wait' : 'cursor-pointer'}`}
-                >
-                  {aiLoading ? 'GENERATING CATALOGUE...' : aiReady ? '✓ AI CATALOGUE READY' : 'GENERATE AI MOVIES'}
-                </button>
-                {aiReady && (
-                  <p className="text-center font-sans font-bold text-green-700 mt-2 text-sm">30 fresh movies generated! Launch when ready.</p>
-                )}
-              </div>
-            </>
+            </div>
           )}
 
           {isHost ? (
             <button 
               onClick={handleLaunchGrid}
-              className="w-full py-5 bg-pink-500 hover:bg-pink-400 text-white font-display text-4xl uppercase tracking-wider transition-transform hover:scale-[1.02] active:scale-[0.98] border-brutal shadow-brutal rounded-xl"
+              disabled={launching}
+              className={`w-full py-5 bg-pink-500 hover:bg-pink-400 text-white font-display text-4xl uppercase tracking-wider transition-transform hover:scale-[1.02] active:scale-[0.98] border-brutal shadow-brutal rounded-xl ${launching ? 'animate-pulse' : ''}`}
             >
-              LAUNCH GRID
+              {launching ? 'PREPARING GRID...' : 'LAUNCH GRID'}
             </button>
           ) : (
             <div className="w-full py-5 bg-gray-200 text-gray-500 font-display text-3xl uppercase tracking-wider border-brutal border-gray-400 rounded-xl">

@@ -61,14 +61,17 @@ export const SessionSetup = () => {
     setError('');
 
     try {
-      const code = Math.random().toString(36).substring(2, 6).toUpperCase();
+      // Guaranteed 4-character uppercase alphanumeric code
+      const code = Math.random().toString(36).substring(2, 6).toUpperCase().padEnd(4, 'X');
       
+      console.log('[Supabase] Creating room with code:', code);
       if (import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY) {
         const room = await createRoom(code);
         if (!room) throw new Error("Supabase client failed to initialize.");
+        console.log('[Supabase] Room created:', room);
         dispatch({ type: 'SET_ROOM', payload: { roomId: room.id, roomCode: code } });
-        // The host must add themselves to the room_participants, so we call joinRoom too
-        await joinRoom(code, hostName);
+        // The host must add themselves to the room_participants
+        await joinRoom(code, hostName.trim());
       } else {
         dispatch({ type: 'SET_ROOM', payload: { roomId: 'mock-id', roomCode: code } });
       }

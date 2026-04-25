@@ -25,19 +25,49 @@ export const createRoom = async (code) => {
 export const joinRoom = async (code, participantName) => {
   if (!supabase) return null;
 
+  const normalizedCode = code.trim().toUpperCase();
+  console.log(`[Supabase] Attempting to join room: "${normalizedCode}" for participant: "${participantName}"`);
+
   const { data: room, error: roomError } = await supabase
-    .from('rooms').select('id').eq('code', code).single();
-  if (roomError) throw new Error('Room not found');
+    .from('rooms')
+    .select('id, code')
+    .eq('code', normalizedCode)
+    .maybeSingle();
+
+  if (roomError) {
+    console.error('[Supabase] Error finding room:', roomError);
+    throw roomError;
+  }
+
+  if (!room) {
+    console.error(`[Supabase] No room found with code: "${normalizedCode}"`);
+    throw new Error('Room not found');
+  }
+
+  console.log('[Supabase] Found room:', room);
 
   const { data: existingParticipants, error: epError } = await supabase
-    .from('room_participants').select('name').eq('room_id', room.id);
-  if (epError) throw epError;
+    .from('room_participants')
+    .select('name')
+    .eq('room_id', room.id);
+
+  if (epError) {
+    console.error('[Supabase] Error fetching participants:', epError);
+    throw epError;
+  }
 
   const { data: participant, error: pError } = await supabase
     .from('room_participants')
     .insert([{ room_id: room.id, name: participantName, state: {} }])
-    .select().single();
-  if (pError) throw pError;
+    .select()
+    .single();
+
+  if (pError) {
+    console.error('[Supabase] Error joining room:', pError);
+    throw pError;
+  }
+
+  console.log('[Supabase] Successfully joined room as:', participantName);
 
   return {
     roomId: room.id,

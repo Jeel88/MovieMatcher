@@ -19,23 +19,23 @@ export const SessionSetup = () => {
   const [aiReady, setAiReady] = useState(false);
 
   const handleGenerateMovies = async () => {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      setError('No AI key found. Add VITE_ANTHROPIC_API_KEY to your .env file.');
-      return;
-    }
     setAiLoading(true);
+    setError('');
     try {
-      const movies = await generateMovieCatalogue(selectedGenres, apiKey);
-      dispatch({ type: 'SET_AI_CATALOGUE', payload: movies });
-      // Broadcast immediately so participants get it before voting starts
-      if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
-        await broadcastAICatalogue(state.roomId, movies);
+      const movies = await generateMovieCatalogue(selectedGenres);
+      if (movies && movies.length > 0) {
+        dispatch({ type: 'SET_AI_CATALOGUE', payload: movies });
+        if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
+          await broadcastAICatalogue(state.roomId, movies);
+        }
+        setAiReady(true);
+      } else {
+        setError('No API keys found. Using built-in movie library instead.');
+        setAiReady(false);
       }
-      setAiReady(true);
     } catch (e) {
       console.error(e);
-      setError('AI generation failed. Check your API key.');
+      setError('Generation failed. Will use built-in movie library.');
     } finally {
       setAiLoading(false);
     }

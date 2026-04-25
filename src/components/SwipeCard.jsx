@@ -4,42 +4,63 @@ import { Heart, X, Check } from 'lucide-react';
 import { useSwipeCard } from '../hooks/useSwipeCard';
 
 export const SwipeCard = ({ film, index, onVote }) => {
-  const { dragProps, rotate, opacities } = useSwipeCard({ index, onVote, filmId: film.id });
-  const isFront = index === 0;
+  const { motionX, motionY, rotate, opacities, dragConfig, isFront } = useSwipeCard({ index, onVote, filmId: film.id });
 
+  // Background cards: static, no drag, no motion values
+  if (!isFront) {
+    return (
+      <motion.div
+        initial={{ scale: 1 - index * 0.05, y: index * 14 }}
+        animate={{ scale: 1 - index * 0.05, y: index * 14 }}
+        style={{ zIndex: 10 - index, touchAction: 'none' }}
+        className="absolute inset-0 rounded-3xl shadow-brutal border-brutal bg-white overflow-hidden film-grain flex flex-col justify-end cursor-default pointer-events-none"
+      >
+        <img
+          src={film.posterUrl}
+          alt={film.title}
+          className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
+          draggable="false"
+          onError={(e) => {
+            const slug = film.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            e.target.src = `https://picsum.photos/seed/${slug}/400/600`;
+            e.target.onerror = null;
+          }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
+      </motion.div>
+    );
+  }
+
+  // Front card: full drag + overlays + content
   return (
     <motion.div
-      layout
-      exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
       style={{
-        x: dragProps.x,
-        y: isFront ? dragProps.y : index * 12,
+        x: motionX,
+        y: motionY,
         rotate,
-        scale: isFront ? 1 : 1 - index * 0.05,
-        zIndex: 10 - index,
+        zIndex: 10,
+        touchAction: 'none',
       }}
-      {...dragProps}
-      className={`absolute inset-0 rounded-3xl shadow-brutal border-brutal bg-white overflow-hidden film-grain flex flex-col justify-end ${
-        isFront ? 'cursor-grab active:cursor-grabbing' : 'cursor-default pointer-events-none'
-      }`}
+      {...dragConfig}
+      exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.15 } }}
+      className="absolute inset-0 rounded-3xl shadow-brutal border-brutal bg-white overflow-hidden film-grain flex flex-col justify-end cursor-grab active:cursor-grabbing"
     >
-      <img 
-        src={film.posterUrl} 
-        alt={film.title} 
+      <img
+        src={film.posterUrl}
+        alt={film.title}
         className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none"
         draggable="false"
         onError={(e) => {
-          // Fallback to a reliable placeholder if poster fails to load
           const slug = film.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
           e.target.src = `https://picsum.photos/seed/${slug}/400/600`;
-          e.target.onerror = null; // prevent infinite loop
+          e.target.onerror = null;
         }}
       />
-      
-      {/* Gradient overlay to make text readable */}
+
+      {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none" />
 
-      {/* Overlays */}
+      {/* Swipe direction overlays */}
       <motion.div style={{ opacity: opacities.no }} className="absolute top-8 right-8 pointer-events-none">
         <div className="border-brutal rounded-full p-2 bg-pink-500 shadow-brutal rotate-12">
           <X className="w-12 h-12 text-white" strokeWidth={4} />
@@ -58,10 +79,10 @@ export const SwipeCard = ({ film, index, onVote }) => {
         </div>
       </motion.div>
 
-      {/* Card Content - Chainzoku Style */}
+      {/* Film info */}
       <div className="relative p-6 z-10 pointer-events-none select-none">
         <h2 className="font-display text-4xl text-white mb-2 leading-none uppercase tracking-wide text-outline shadow-brutal-text">{film.title}</h2>
-        
+
         <div className="flex gap-2 mb-3">
           <div className="px-3 py-1 bg-yellow-400 border-2 border-black rounded font-sans text-xs font-bold text-black uppercase shadow-[2px_2px_0px_0px_#111]">
             {film.year}

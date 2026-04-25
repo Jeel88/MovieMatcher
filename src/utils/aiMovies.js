@@ -1,93 +1,156 @@
 /**
- * Calls Claude Haiku to generate 30 random movies matching the given genres.
- * Then enriches each movie with a real poster from OMDB API.
+ * Fetches real movies from TMDB API.
+ * Falls back to Anthropic AI generation if no TMDB key.
+ * Falls back to hardcoded films if neither key is available.
  */
-export const generateMovieCatalogue = async (genres = [], apiKey) => {
-  if (!apiKey) throw new Error('No Anthropic API key provided');
 
-  const genreText = genres.length > 0
-    ? `The movies MUST be from these genres only: ${genres.join(', ')}.`
-    : 'Include a diverse mix of genres (Action, Drama, Sci-Fi, Crime, Animation, Horror, Comedy, Romance, Thriller).';
+// TMDB genre name → ID mapping
+const GENRE_MAP = {
+  'Action': 28, 'Adventure': 12, 'Animation': 16, 'Biography': 36,
+  'Comedy': 35, 'Crime': 80, 'Drama': 18, 'Family': 10751,
+  'Horror': 27, 'Sci-Fi': 878, 'Thriller': 53, 'Romance': 10749,
+  'Mystery': 9648, 'Fantasy': 14, 'War': 10752, 'Music': 10402,
+};
 
-  const prompt = `You are a movie database. Generate exactly 30 well-known, real movies that actually exist.
-${genreText}
+// Reverse map: TMDB genre ID → name
+const GENRE_ID_TO_NAME = Object.fromEntries(
+  Object.entries(GENRE_MAP).map(([name, id]) => [id, name])
+);
 
-Return ONLY a valid JSON array with no markdown, no explanation, nothing else. Each object must have EXACTLY these fields:
-- id: unique integer starting from 1000
-- title: the EXACT real movie title (must be a real film that exists)
-- year: string like "2019"
-- genre: string like "Sci-Fi" or "Action, Thriller"
-- runtime: string like "2h 12m"
-- synopsis: 2 sentences maximum describing the plot
+/**
+ * Primary: Fetch movies from TMDB discover API.
+ * Returns ~200 real movies with real poster URLs.
+ */
+export const fetchMoviesFromTMDB = async (genres = []) => {
+  const apiKey = import.meta.env.VITE_TMDB_API_KEY;
+  if (!apiKey) return null;
 
-Do NOT include a posterUrl field - I will fetch that separately.
+  // Build genre filter
+  const genreIds = genres.map(g => GENRE_MAP[g]).filter(Boolean);
+  const genreParam = genreIds.length > 0 ? `&with_genres=${genreIds.join(',')}` : '';
 
-Make sure movies are diverse, well-known classics and hits spanning different decades.
-Output the JSON array now with no other text:`;
+  // Fetch multiple pages for variety (10 pages = 200 movies)
+  const pages = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const allMovies = [];
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
+  await Promise.all(pages.map(async (page) => {
+    try {
+      const url = `https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}&sort_by=popularity.desc&vote_count.gte=100&page=${page}${genreParam}&language=en-US`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Anthropic API error: ${err}`);
-  }
+      data.results.forEach(movie => {
+        if (!movie.poster_path || !movie.title) return;
 
-  const data = await response.json();
-  const text = data.content[0].text;
+        const genreNames = (movie.genre_ids || [])
+          .map(id => GENRE_ID_TO_NAME[id])
+          .filter(Boolean)
+          .slice(0, 2)
+          .join(', ') || 'Drama';
 
-  // Strip any accidental markdown code fences
-  const cleaned = text.replace(/```json?/gi, '').replace(/```/g, '').trim();
-  let movies = JSON.parse(cleaned);
+        allMovies.push({
+          id: movie.id,
+          title: movie.title,
+          year: (movie.release_date || '').slice(0, 4) || '—',
+          genre: genreNames,
+          runtime: '—',
+          synopsis: movie.overview || 'No description available.',
+          posterUrl: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
+        });
+      });
+    } catch (e) {
+      console.warn(`TMDB page ${page} failed:`, e);
+    }
+  }));
 
-  // Enrich with real posters from OMDB (free, no key needed for poster fetch)
-  movies = await enrichWithPosters(movies);
+  if (allMovies.length === 0) return null;
 
-  return movies;
+  // Shuffle and return 30
+  return shuffleArray(allMovies).slice(0, 30);
 };
 
 /**
- * Fetches real movie posters from OMDB API for each generated movie.
- * Falls back to a stylized placeholder if not found.
+ * Secondary: Generate movies with Claude AI + enrich with OMDB posters.
  */
-const enrichWithPosters = async (movies) => {
-  const OMDB_KEY = 'trilogy'; // free public demo key
-  
-  const enriched = await Promise.all(movies.map(async (movie) => {
-    try {
-      const titleEncoded = encodeURIComponent(movie.title);
-      const url = `https://www.omdbapi.com/?t=${titleEncoded}&y=${movie.year}&apikey=${OMDB_KEY}&type=movie`;
-      const res = await fetch(url);
-      
-      if (res.ok) {
-        const data = await res.json();
-        if (data.Response === 'True' && data.Poster && data.Poster !== 'N/A') {
-          return { ...movie, posterUrl: data.Poster };
+export const fetchMoviesFromAI = async (genres = []) => {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const genreText = genres.length > 0
+    ? `The movies MUST be from these genres: ${genres.join(', ')}.`
+    : 'Include a diverse mix of genres.';
+
+  const prompt = `Generate exactly 30 well-known, real movies. ${genreText}
+Return ONLY a JSON array. Each object: {"id": number, "title": string, "year": string, "genre": string, "runtime": string, "synopsis": string (2 sentences max)}. No posterUrl. No markdown.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-latest',
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!res.ok) throw new Error(await res.text());
+
+    const data = await res.json();
+    const text = data.content[0].text.replace(/```json?/gi, '').replace(/```/g, '').trim();
+    const movies = JSON.parse(text);
+
+    // Enrich with OMDB posters
+    const OMDB_KEY = 'trilogy';
+    const enriched = await Promise.all(movies.map(async (movie) => {
+      try {
+        const url = `https://www.omdbapi.com/?t=${encodeURIComponent(movie.title)}&y=${movie.year}&apikey=${OMDB_KEY}&type=movie`;
+        const r = await fetch(url);
+        if (r.ok) {
+          const d = await r.json();
+          if (d.Response === 'True' && d.Poster && d.Poster !== 'N/A') {
+            return { ...movie, posterUrl: d.Poster };
+          }
         }
-      }
-    } catch (e) {
-      // silently fall through to placeholder
-    }
+      } catch (_) {}
+      const slug = movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      return { ...movie, posterUrl: `https://picsum.photos/seed/${slug}/400/600` };
+    }));
 
-    // Stylized fallback using a reliable placeholder service with movie title
-    const slug = movie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    return {
-      ...movie,
-      posterUrl: `https://picsum.photos/seed/${slug}/400/600`
-    };
-  }));
-
-  return enriched;
+    return enriched;
+  } catch (e) {
+    console.error('AI generation failed:', e);
+    return null;
+  }
 };
+
+/**
+ * Master function: tries TMDB → AI → returns null (caller uses hardcoded)
+ */
+export const generateMovieCatalogue = async (genres = []) => {
+  // Try TMDB first (instant, reliable, real posters)
+  const tmdbMovies = await fetchMoviesFromTMDB(genres);
+  if (tmdbMovies && tmdbMovies.length > 0) return tmdbMovies;
+
+  // Try AI generation (slower, needs Anthropic key)
+  const aiMovies = await fetchMoviesFromAI(genres);
+  if (aiMovies && aiMovies.length > 0) return aiMovies;
+
+  // Return null — caller will use hardcoded films
+  return null;
+};
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}

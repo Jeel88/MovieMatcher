@@ -45,8 +45,7 @@ export const fetchAllRationales = async (participants, topFilmId, apiKey) => {
   return participants.reduce((acc, p) => {
     // Pick a random roast from the array
     const randomRoast = SASSY_ROASTS[Math.floor(Math.random() * SASSY_ROASTS.length)];
-    // Personalize it slightly with their name
-    acc[p.name] = `[User: ${p.name}] ${randomRoast}`;
+    acc[p.name] = randomRoast;
     return acc;
   }, {});
 };

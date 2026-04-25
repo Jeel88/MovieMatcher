@@ -6,16 +6,6 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
-    chunkSizeWarningLimit: 3000,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          gsap: ['gsap', '@gsap/react'],
-          framer: ['framer-motion'],
-          supabase: ['@supabase/supabase-js']
-        }
-      }
-    }
+    chunkSizeWarningLimit: 3000
   }
 })

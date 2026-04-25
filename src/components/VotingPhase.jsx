@@ -9,20 +9,19 @@ export const VotingPhase = () => {
   const { state, dispatch } = useSession();
   const participant = state.participants.find(p => p.name === state.localParticipantName) || state.participants[0];
   const [queue, setQueue] = useState([]);
-  const [history, setHistory] = useState([]);
-  // Airtight guard: track which filmIds have already been voted on this session
-  const votedFilms = useRef(new Set());
   const [hasInitialized, setHasInitialized] = useState(false);
+  // Airtight guard: each filmId can only be voted on once per session
+  const votedFilms = useRef(new Set());
+  // Track voted count for the progress indicator
+  const [votedCount, setVotedCount] = useState(0);
 
-  // Initialize the shuffled queue for the current participant
+  // Build the queue once on mount
   useEffect(() => {
     if (!participant || hasInitialized) return;
-    
+
     if (!participant.queue || participant.queue.length === 0) {
-      // Use AI catalogue if generated, otherwise fall back to hardcoded films
       const source = (state.aiCatalogue && state.aiCatalogue.length > 0) ? state.aiCatalogue : films;
 
-      // Filter by banned films and selected genres
       let pool = source;
       if (state.bannedFilms && state.bannedFilms.length > 0) {
         pool = pool.filter(f => !state.bannedFilms.includes(f.id));
@@ -30,95 +29,81 @@ export const VotingPhase = () => {
       if (state.selectedGenres && state.selectedGenres.length > 0) {
         pool = pool.filter(f => state.selectedGenres.some(g => f.genre.includes(g)));
       }
-
-      // Fallback if filter is too strict
-      if (pool.length === 0) pool = films;
+      if (pool.length === 0) pool = source; // fallback
 
       const newQueue = shuffleFilms(pool).slice(0, 10);
       dispatch({ type: 'SET_PARTICIPANT_QUEUE', payload: { name: participant.name, queue: newQueue } });
       setQueue(newQueue);
-      setHasInitialized(true);
     } else {
-      // Restore remaining queue if page reloaded
+      // Restore remaining cards (skip already-voted films)
       const remaining = participant.queue.filter(f => !participant.votes[f.id]);
+      // Pre-fill votedFilms from existing votes so the guard stays consistent
+      Object.keys(participant.votes).forEach(id => votedFilms.current.add(Number(id)));
       setQueue(remaining);
-      setHasInitialized(true);
+      setVotedCount(Object.keys(participant.votes).length);
     }
-  }, [participant, dispatch, hasInitialized, state.bannedFilms, state.selectedGenres]);
+
+    setHasInitialized(true);
+  }, [participant, dispatch, hasInitialized, state.bannedFilms, state.selectedGenres, state.aiCatalogue]);
 
   const handleVote = (sentiment, filmId) => {
-    // Deduplicate — ignore if this film was already voted on
+    // Deduplicate — ignore if already voted
     if (votedFilms.current.has(filmId)) return;
     votedFilms.current.add(filmId);
 
-    const film = queue.find(f => f.id === filmId);
-    
     // 1. Record vote in global state
     dispatch({ type: 'CAST_VOTE', payload: { name: participant.name, filmId, sentiment } });
-    
-    // 2. Add to local history sidebar
-    setHistory(prev => [{ film, sentiment }, ...prev]);
-    
-    // 3. Remove from local queue
+
+    // 2. Remove card from local queue
     const remainingQueue = queue.filter(f => f.id !== filmId);
     setQueue(remainingQueue);
+    setVotedCount(prev => prev + 1);
 
-    // 4. Check if queue is empty -> Broadcast votes and Wait
+    // 3. If queue empty → finished
     if (remainingQueue.length === 0) {
       const updatedVotes = { ...participant.votes, [filmId]: sentiment };
-      
-      // Mark local participant as finished
       dispatch({ type: 'MARK_FINISHED', payload: participant.name });
-      
       if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
         broadcastVotes(state.roomId, participant.name, updatedVotes, true);
-      } else {
-        // If local mode, we let App.jsx auto-trigger the reveal.
       }
     }
   };
 
   if (!participant) return null;
 
+  const totalCards = (participant.queue && participant.queue.length > 0)
+    ? participant.queue.length
+    : 10;
+
   return (
-    <div className="h-screen md:overflow-hidden overflow-hidden bg-[#F4F4F0] text-black flex flex-col md:flex-row p-4 md:p-8 gap-4 md:gap-8 bg-halftone">
-      
-      {/* LEFT SIDEBAR -> TOP HEADER ON MOBILE */}
-      <div className="w-full md:w-1/4 flex flex-row md:flex-col gap-4 md:gap-6 shrink-0 z-10">
-        {/* Active User Card */}
-        <div className="bg-white border-brutal shadow-brutal p-3 md:p-6 rounded-xl md:rounded-2xl flex-1 flex md:block items-center justify-between">
-          <div className="hidden md:inline-block bg-pink-500 text-white font-display text-xl px-3 py-1 mb-4 border-brutal -rotate-2">
-            ACTIVE USER
+    <div className="h-screen overflow-hidden bg-[#F4F4F0] text-black flex flex-col bg-halftone">
+
+      {/* TOP BAR */}
+      <div className="flex items-center justify-between px-6 py-4 border-b-[3px] border-black bg-white shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="bg-pink-500 text-white font-display text-lg px-3 py-1 border-[3px] border-black -rotate-1">
+            {participant.name}
           </div>
-          <div>
-            <h2 className="font-heading text-xl md:text-4xl font-bold uppercase truncate leading-none">{participant.name}</h2>
-            <p className="font-sans font-medium text-gray-500 mt-1 md:mt-2 text-xs md:text-base hidden md:block">Participant {state.currentParticipantIndex + 1} of {state.participants.length}</p>
-          </div>
+          <span className="font-sans font-bold text-sm text-gray-500 hidden sm:block">
+            Room: {state.roomCode || 'LOCAL'}
+          </span>
         </div>
 
-        {/* Stats Card */}
-        <div className="bg-yellow-400 border-brutal shadow-brutal p-3 md:p-6 rounded-xl md:rounded-2xl flex-1 flex md:block flex-col justify-center">
-          <h3 className="hidden md:block font-display text-2xl uppercase mb-4">Session Stats</h3>
-          <div className="space-y-2 md:space-y-4 font-sans font-medium">
-            <div className="flex justify-between items-center md:border-b-2 md:border-black md:pb-2">
-              <span className="text-sm md:text-base">Remaining:</span>
-              <span className="font-bold text-lg md:text-xl bg-white md:bg-transparent px-2 border-brutal md:border-none md:px-0 shadow-brutal md:shadow-none -rotate-2 md:rotate-0">{queue.length}</span>
-            </div>
-            <div className="hidden md:flex justify-between border-b-2 border-black pb-2">
-              <span>Total Votes:</span>
-              <span className="font-bold text-xl">{history.length}</span>
-            </div>
-            <div className="hidden md:flex justify-between border-b-2 border-black pb-2">
-              <span>Room Code:</span>
-              <span className="font-display text-xl">{state.roomCode || 'LOCAL'}</span>
-            </div>
+        {/* Progress bar */}
+        <div className="flex items-center gap-3">
+          <div className="w-32 sm:w-48 h-4 bg-gray-200 border-[3px] border-black rounded-full overflow-hidden">
+            <div
+              className="h-full bg-cyan-400 transition-all duration-300"
+              style={{ width: `${(votedCount / totalCards) * 100}%` }}
+            />
           </div>
+          <span className="font-display text-lg font-bold">{votedCount}/{totalCards}</span>
         </div>
       </div>
 
-      {/* CENTER: Swipe Card Stack */}
-      <div className="w-full md:w-2/4 flex-1 flex flex-col items-center justify-center relative perspective-[1000px] z-0">
-        <div className="relative w-full max-w-[320px] sm:w-96 h-[65vh] md:h-[32rem]">
+      {/* SWIPE AREA — fills remaining height */}
+      <div className="flex-1 flex items-center justify-center relative">
+        <div className="relative w-[320px] sm:w-96 h-[65vh]">
           <AnimatePresence>
             {queue.slice(0, 3).map((film, index) => (
               <SwipeCard
@@ -129,63 +114,40 @@ export const VotingPhase = () => {
               />
             ))}
           </AnimatePresence>
-          
+
           {queue.length === 0 && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-white border-brutal shadow-brutal rounded-2xl text-center p-8"
+              className="absolute inset-0 flex flex-col items-center justify-center bg-white border-[4px] border-black shadow-[12px_12px_0_#00E5FF] text-center p-8 rounded-2xl"
             >
-              <h2 className="font-display text-3xl md:text-4xl mb-4 text-pink-500">QUEUE COMPLETE</h2>
-              <p className="font-sans font-medium mb-4">Transmitting votes to Host...</p>
-              <div className="flex gap-2 justify-center">
-                <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" />
-                <div className="w-3 h-3 bg-yellow-400 rounded-full animate-bounce delay-75" />
-                <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce delay-150" />
+              <h2 className="font-display text-4xl md:text-5xl mb-4 text-pink-500 uppercase">Queue Complete!</h2>
+              <p className="font-sans font-bold mb-6 text-gray-600">Transmitting results to Host...</p>
+              <div className="flex gap-3 justify-center">
+                <div className="w-4 h-4 bg-cyan-400 border-[2px] border-black rounded-full animate-bounce" />
+                <div className="w-4 h-4 bg-yellow-400 border-[2px] border-black rounded-full animate-bounce delay-75" />
+                <div className="w-4 h-4 bg-pink-500 border-[2px] border-black rounded-full animate-bounce delay-150" />
               </div>
-              <p className="font-sans font-medium mt-4 text-gray-500">Waiting for other crew members to finish.</p>
+              <p className="font-sans text-sm mt-6 text-gray-400">Waiting for all crew members...</p>
             </motion.div>
           )}
         </div>
-      </div>
 
-      {/* RIGHT SIDEBAR: History Queue (Hidden on Mobile to save space) */}
-      <div className="hidden md:flex w-full md:w-1/4 flex-col gap-4">
-        <div className="bg-black text-white border-brutal shadow-brutal p-4 rounded-2xl">
-          <h3 className="font-display text-2xl uppercase text-center">Vote History</h3>
-        </div>
-        
-        <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-          <AnimatePresence>
-            {history.map((item, i) => (
-              <motion.div
-                key={item.film.id + i}
-                initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white border-brutal shadow-[4px_4px_0px_0px_#111] p-4 rounded-xl flex items-center gap-4"
-              >
-                <img src={item.film.posterUrl} alt={item.film.title} className="w-12 h-16 object-cover border-2 border-black rounded" />
-                <div className="flex-1 overflow-hidden">
-                  <h4 className="font-heading font-bold truncate">{item.film.title}</h4>
-                  <span className={`inline-block mt-1 font-display px-2 py-0.5 text-sm uppercase border-2 border-black ${
-                    item.sentiment === 'love' ? 'bg-yellow-400' : 
-                    item.sentiment === 'yes' ? 'bg-green-400' : 'bg-pink-500 text-white'
-                  }`}>
-                    {item.sentiment}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          
-          {history.length === 0 && (
-            <div className="h-full flex items-center justify-center text-gray-500 font-sans italic">
-              No votes cast yet.
+        {/* Swipe hint labels */}
+        {queue.length > 0 && (
+          <div className="absolute bottom-6 left-0 right-0 flex justify-between px-8 pointer-events-none">
+            <div className="bg-pink-500 text-white font-display text-xl px-4 py-2 border-[3px] border-black shadow-[4px_4px_0_black] -rotate-6">
+              SKIP
             </div>
-          )}
-        </div>
+            <div className="bg-yellow-400 text-black font-display text-xl px-4 py-2 border-[3px] border-black shadow-[4px_4px_0_black] rotate-6">
+              LOVE ↑
+            </div>
+            <div className="bg-green-400 text-black font-display text-xl px-4 py-2 border-[3px] border-black shadow-[4px_4px_0_black] rotate-6">
+              YES →
+            </div>
+          </div>
+        )}
       </div>
-
     </div>
   );
 };

@@ -5,7 +5,7 @@ import { SessionProvider, useSession } from './store/sessionStore';
 import { VotingPhase } from './components/VotingPhase';
 import { Countdown } from './components/Countdown';
 import { RevealCeremony } from './components/RevealCeremony';
-import { subscribeToRoom, broadcastPhaseChange } from './utils/supabase';
+import { subscribeToRoom, broadcastPhaseChange, broadcastAICatalogue } from './utils/supabase';
 
 function AppContent() {
   const { state, dispatch } = useSession();
@@ -24,7 +24,10 @@ function AppContent() {
         },
         (payload) => {
           const newPhase = payload.phase;
-          if (newPhase === 'voting') {
+          if (newPhase === 'ai_catalogue') {
+            // Host broadcast the AI-generated movie list — store it for voting
+            dispatch({ type: 'SET_AI_CATALOGUE', payload: payload.catalogue || [] });
+          } else if (newPhase === 'voting') {
             dispatch({ type: 'SET_GENRES', payload: payload.genres || [] });
             dispatch({ type: 'START_SESSION' });
           } else if (newPhase === 'voting_rematch') {

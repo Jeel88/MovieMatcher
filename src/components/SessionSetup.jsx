@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from '../store/sessionStore';
-import { createRoom, joinRoom, subscribeToRoom, broadcastPhaseChange } from '../utils/supabase';
+import { createRoom, joinRoom, subscribeToRoom, broadcastPhaseChange, broadcastAICatalogue } from '../utils/supabase';
 import { generateMovieCatalogue } from '../utils/aiMovies';
 
 const ALL_GENRES = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Drama', 'Family', 'Sci-Fi', 'Thriller'];
@@ -28,6 +28,10 @@ export const SessionSetup = () => {
     try {
       const movies = await generateMovieCatalogue(selectedGenres, apiKey);
       dispatch({ type: 'SET_AI_CATALOGUE', payload: movies });
+      // Broadcast immediately so participants get it before voting starts
+      if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
+        await broadcastAICatalogue(state.roomId, movies);
+      }
       setAiReady(true);
     } catch (e) {
       console.error(e);
@@ -113,6 +117,10 @@ export const SessionSetup = () => {
 
   const handleLaunchGrid = async () => {
     if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
+      // Broadcast AI catalogue first so participants get movies before voting
+      if (state.aiCatalogue && state.aiCatalogue.length > 0) {
+        await broadcastAICatalogue(state.roomId, state.aiCatalogue);
+      }
       await broadcastPhaseChange(state.roomId, 'voting', { genres: selectedGenres });
     } else {
       dispatch({ type: 'SET_GENRES', payload: selectedGenres });

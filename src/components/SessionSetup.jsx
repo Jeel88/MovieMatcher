@@ -19,29 +19,6 @@ export const SessionSetup = () => {
     }
   }, [error]);
 
-  // Handle Realtime Subscriptions when in Lobby
-  useEffect(() => {
-    if (state.roomId && import.meta.env.VITE_SUPABASE_URL) {
-      const channel = subscribeToRoom(
-        state.roomId,
-        (newParticipantName) => {
-          dispatch({ type: 'ADD_PARTICIPANT', payload: newParticipantName });
-        },
-        (newPhase) => {
-          if (newPhase === 'voting') {
-            // Re-map participants to ensure the structure is correct for the session
-            const names = state.participants.map(p => p.name);
-            dispatch({ type: 'START_SESSION', payload: names });
-          }
-        }
-      );
-
-      return () => {
-        if (channel) channel.unsubscribe();
-      };
-    }
-  }, [state.roomId, state.participants, dispatch]);
-
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!hostName.trim()) return;
@@ -63,6 +40,7 @@ export const SessionSetup = () => {
 
       setIsHost(true);
       dispatch({ type: 'ADD_PARTICIPANT', payload: hostName });
+      dispatch({ type: 'SET_LOCAL_USER', payload: hostName });
     } catch (err) {
       setError('Failed to create room. Check Supabase connection.');
       console.error(err);
@@ -87,6 +65,7 @@ export const SessionSetup = () => {
 
       setIsHost(false);
       dispatch({ type: 'ADD_PARTICIPANT', payload: joinName });
+      dispatch({ type: 'SET_LOCAL_USER', payload: joinName });
     } catch (err) {
       setError('Failed to join room. Check code.');
       console.error(err);
@@ -99,8 +78,7 @@ export const SessionSetup = () => {
     if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
       await broadcastPhaseChange(state.roomId, 'voting');
     }
-    const names = state.participants.map(p => p.name);
-    dispatch({ type: 'START_SESSION', payload: names });
+    dispatch({ type: 'START_SESSION' });
   };
 
   // --- LOBBY VIEW ---

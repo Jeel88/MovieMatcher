@@ -9,6 +9,7 @@ const defaultState = {
   phase: 'hero', // 'hero', 'setup', 'voting', 'countdown', 'reveal', 'results'
   roomId: null, // For Supabase sync
   roomCode: null,
+  localParticipantName: null,
 };
 
 const getInitialState = () => {
@@ -26,8 +27,8 @@ const sessionReducer = (state, action) => {
     case 'START_SESSION':
       return {
         ...state,
-        participants: action.payload.map(name => ({
-          name,
+        participants: state.participants.map(p => ({
+          ...p,
           votes: {},
           queue: []
         })),
@@ -80,6 +81,17 @@ const sessionReducer = (state, action) => {
         currentParticipantIndex: nextIndex,
         currentCardIndex: 0,
       };
+
+    case 'SET_LOCAL_USER':
+      return { ...state, localParticipantName: action.payload };
+
+    case 'RECEIVE_VOTES': {
+      const { name, votes } = action.payload;
+      const updatedParticipants = state.participants.map(p => 
+        p.name === name ? { ...p, votes } : p
+      );
+      return { ...state, participants: updatedParticipants };
+    }
 
     case 'SET_PHASE':
       return { ...state, phase: action.payload };

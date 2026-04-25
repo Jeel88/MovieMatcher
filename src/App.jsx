@@ -13,6 +13,55 @@ function AppContent() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [state.phase]);
 
+  // Global Realtime Subscription
+  useEffect(() => {
+    if (state.roomId && import.meta.env.VITE_SUPABASE_URL) {
+      import('./utils/supabase').then(({ subscribeToRoom }) => {
+        const channel = subscribeToRoom(
+          state.roomId,
+          (newParticipantName) => {
+            dispatch({ type: 'ADD_PARTICIPANT', payload: newParticipantName });
+          },
+          (newPhase) => {
+            if (newPhase === 'voting') {
+              dispatch({ type: 'START_SESSION' });
+            } else if (newPhase === 'reveal') {
+              dispatch({ type: 'SET_PHASE', payload: 'reveal' });
+            }
+          },
+          (name, votes) => {
+            dispatch({ type: 'RECEIVE_VOTES', payload: { name, votes } });
+          }
+        );
+      });
+    }
+  }, [state.roomId, dispatch]);
+
+  // Host Logic: Check if all participants finished voting
+  useEffect(() => {
+    if (state.phase === 'voting' && state.participants.length > 0) {
+      const isHost = state.participants[0].name === state.localParticipantName;
+      if (isHost || !import.meta.env.VITE_SUPABASE_URL) {
+        // Assume queue is completed when a user casts 10 votes (or whatever the queue limit is)
+        // For robustness, check if they have at least 1 vote, but ideally 10.
+        // Wait, since we slice(0, 10), they must cast 10.
+        const allFinished = state.participants.every(p => Object.keys(p.votes).length >= 10);
+        
+        if (allFinished) {
+          if (import.meta.env.VITE_SUPABASE_URL && state.roomId) {
+            import('./utils/supabase').then(({ broadcastPhaseChange }) => {
+              broadcastPhaseChange(state.roomId, 'reveal');
+              dispatch({ type: 'SET_PHASE', payload: 'reveal' });
+            });
+          } else {
+            // Local fallback
+            dispatch({ type: 'SET_PHASE', payload: 'reveal' });
+          }
+        }
+      }
+    }
+  }, [state.participants, state.phase, state.localParticipantName, state.roomId, dispatch]);
+
   return (
     <div className="bg-[#F4F4F0] text-black min-h-screen">
       {state.phase === 'hero' && (

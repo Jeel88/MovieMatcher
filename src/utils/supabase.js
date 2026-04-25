@@ -45,7 +45,7 @@ export const joinRoom = async (code, participantName) => {
 };
 
 // --- Realtime Sync ---
-export const subscribeToRoom = (roomId, onParticipantJoined, onPhaseChanged) => {
+export const subscribeToRoom = (roomId, onParticipantJoined, onPhaseChanged, onVotesSubmitted) => {
   if (!supabase) return null;
 
   const channel = supabase.channel(`room:${roomId}`)
@@ -53,14 +53,21 @@ export const subscribeToRoom = (roomId, onParticipantJoined, onPhaseChanged) => 
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'room_participants', filter: `room_id=eq.${roomId}` },
       (payload) => {
-        onParticipantJoined(payload.new.name);
+        if (onParticipantJoined) onParticipantJoined(payload.new.name);
       }
     )
     .on(
       'broadcast',
       { event: 'phase_change' },
       (payload) => {
-        onPhaseChanged(payload.payload.phase);
+        if (onPhaseChanged) onPhaseChanged(payload.payload.phase);
+      }
+    )
+    .on(
+      'broadcast',
+      { event: 'submit_votes' },
+      (payload) => {
+        if (onVotesSubmitted) onVotesSubmitted(payload.payload.name, payload.payload.votes);
       }
     )
     .subscribe();
@@ -74,5 +81,14 @@ export const broadcastPhaseChange = async (roomId, phase) => {
     type: 'broadcast',
     event: 'phase_change',
     payload: { phase }
+  });
+};
+
+export const broadcastVotes = async (roomId, name, votes) => {
+  if (!supabase) return;
+  await supabase.channel(`room:${roomId}`).send({
+    type: 'broadcast',
+    event: 'submit_votes',
+    payload: { name, votes }
   });
 };
